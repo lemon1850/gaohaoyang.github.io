@@ -1,4 +1,4 @@
-# Welcome to Jekyll!
+# Welcome to J
 #
 # This config file is meant for settings that affect your whole blog, values
 # which you are expected to set up once and rarely need to edit after that.
@@ -28,15 +28,17 @@ description_footer: 本站记录我后端之旅的沿途风景！
 # comments
 # two ways to comment, only choose one, and use your own short name
 # 两种评论插件，选一个就好了，使用自己的 short_name
-duoshuo_shortname: hygblog
-disqus_shortname: #gaohaoyang
+
+duoshuo_shortname: tianhe
+#disqus_shortname: #gaohaoyang
 
 # statistic analysis 统计代码
 # 百度统计 id，将统计代码替换为自己的百度统计id，即
-# hm.src = "//hm.baidu.com/hm.js?xxxxxxxxxxxx";
+hm.src = "//hm.baidu.com/hm.js?64b5e66c66675fe5149b0ca0f19e1bf7";
 # xxxxx字符串
-baidu_tongji_id: cf8506e0ef223e57ff6239944e5d46a4
-google_analytics_id: UA-72449510-4 # google 分析追踪id
+
+baidu_tongji_id: 64b5e66c66675fe5149b0ca0f19e1bf7
+#google_analytics_id: UA-72449510-4 # google 分析追踪id
 
 # Build settings
 markdown: kramdown
