@@ -17,6 +17,8 @@ tags:  proxy java
 
 ## java动态代理
 
+
+
 ```java
 public interface InvocationHandler {
     public Object invoke(Object proxy, Method method, Object[] args)
@@ -24,4 +26,12 @@ public interface InvocationHandler {
 }
 
 ```
+
+
+```java
+public class Proxy{
+ public static Object newProxyInstance(ClassLoader loader, Class<?>[] interfaces,InvocationHandler h)throws IllegalArgumentException
+}
+```
+
 
