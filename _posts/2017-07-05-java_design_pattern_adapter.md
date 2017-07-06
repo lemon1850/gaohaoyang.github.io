@@ -119,10 +119,11 @@ class PrintBanner extends Banner implements Print {
 
 
 # 总结
-Target 目标使用对象
-Client 使用者
-Adaptee 被适配对象    
-Adapter 适配器对象
+
+1. Target 目标使用对象
+2. Client 使用者
+3. Adaptee 被适配对象    
+4. Adapter 适配器对象
 ![](http://ok17kve7y.bkt.clouddn.com/14992358005175.jpg)
 
 
