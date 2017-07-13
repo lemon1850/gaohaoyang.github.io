@@ -1,7 +1,6 @@
-
 ---
 layout: post
-title: JAVA集合类ArrayList/LinkedList
+title: JAVA集合类ArrayList LinkedList
 categories: java
 tags:  java
 ---
