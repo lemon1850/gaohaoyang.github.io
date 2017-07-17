@@ -39,7 +39,7 @@ tags:  java
 	* AQS
 	* CAS
 	* ThreadLocal
-	* 原子类
+	* 原子类[](http://www.baidu.com)
 	* concurrent
 		* arrayblockingqueue
 		* linkedblockingqueue
