@@ -41,5 +41,115 @@ The `org.springframework.beans `and `org.springframework.context` 包是Spring I
 
 ### 1.2.1 Configuration metadata
 
+正如前面图像显示，Spring IoC容器消耗配置元数据。这些配置元数据展示软件开发者告诉Spring容器如何去实例化，配置和装配应用中的对象。
 
+配置元数据传统一般是由简单又直觉的XML格式，这种方式是很多章节用来传达关键概念和容器特征。
+
+> 具有XML的元数据并不是唯一允许的配置元数据的形式，容器本身是完全跟配置元数据的方式所解耦。这些天，很多开发者选择基于Java的方式配置他们的Spring应用。
+
+想知道更多关于Spring容器的配置元数据，请看：
+
+* Annotation-based configuration: Spring2.5引入对基于注释的配置元数据
+* Java-based configuration: 从Spring3.0开始，由Spring JavaConfig项目提供很多特征称为Spring框架核心的一部分。因此，你可以在外部给应用的类定义beans，而不仅仅通过XML文件。如果想使用这些新特性，请看@Configuration,@Bean,@Import and @DependsOn注解
+
+基于XML配置元数据以一个<bean/>元素嵌套在一个上一级的<beans/>元素里面的方式去配置beans，而基于Java的配置典型的使用在一个@Configuration类里面用@Bean注解方法
+
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.springframework.org/schema/beans
+                http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+        <bean id="..." class="...">
+                <!-- collaborators and configuration for this bean go here -->
+        </bean>
+
+        <bean id="..." class="...">
+                <!-- collaborators and configuration for this bean go here -->
+        </bean>
+
+        <!-- more bean definitions go here -->
+
+</beans>
+```
+
+id属性是一个字符串用来辨认出bean定义的。class属性是用完整的classname定义bean的类型
+
+### Instantiation a container
+
+实例化一个容器很简单，关于资源所在地址路径的字符串传给ApplicationContex的构造器就可以。其中外部紫爱媛可能是文件系统，又或者来自Java classpath，等等。
+
+
+```java
+ApplicationContext context =
+        new ClassPathXmlApplicationContext(new String[] {"services.xml", "daos.xml"});
+```
+
+下面例子展现了service层的对象(services.xml)的配置文件
+
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.springframework.org/schema/beans
+                http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+        <!-- services -->
+
+        <bean id="petStore" class="org.springframework.samples.jpetstore.services.PetStoreServiceImpl">
+                <property name="accountDao" ref="accountDao"/>
+                <property name="itemDao" ref="itemDao"/>
+                <!-- additional collaborators and configuration for this bean go here -->
+        </bean>
+
+        <!-- more bean definitions for services go here -->
+
+</beans>
+```
+
+下面例子展示数据访问层对象的配置文件daos.xml
+
+
+```java
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.springframework.org/schema/beans
+                http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+        <bean id="accountDao"
+                class="org.springframework.samples.jpetstore.dao.jpa.JpaAccountDao">
+                <!-- additional collaborators and configuration for this bean go here -->
+        </bean>
+
+        <bean id="itemDao" class="org.springframework.samples.jpetstore.dao.jpa.JpaItemDao">
+                <!-- additional collaborators and configuration for this bean go here -->
+        </bean>
+
+        <!-- more bean definitions for data access objects go here -->
+
+</beans>
+```
+
+在前面例子，service层由类`PetStoreServiceImpl`和两个数据访问对象`JpaAccountDao`和`JpaItemDao`。 `property`中`name`属性指示JavaBean property的名字，而`ref`元素指示另外一个bean定义的名字。`id`和`ref`的关联表达出合作对象中的依赖。
+
+组合基于XML的配置元数据
+
+我们除了可以如上面那样子一次过读取多个XML碎片，也可以使用多个`<import/>`元素从其他文件转载bean定义。例如
+
+```xml
+<beans>
+        <import resource="services.xml"/>
+        <import resource="resources/messageSource.xml"/>
+        <import resource="/resources/themeSource.xml"/>
+
+        <bean id="bean1" class="..."/>
+        <bean id="bean2" class="..."/>
+</beans>
+```
+
+在上面的例子，外部的bean定义是由下面三个文件装载：`services.xml`,`messageSource.xml`和`themeSource.xml`。所有定位路径应该相关于进行导入的定义文件，因此`services.xml`肯定是跟进行导入的定义文件相同目录或者classpath，而`themeSource.xml`和`messageSource.xml`则肯定在一个`resources`目录。正如你所见，开头的/是被忽略的，因此给予的路径是相关的，因此最好别用/
 
