@@ -153,3 +153,53 @@ ApplicationContext context =
 
 在上面的例子，外部的bean定义是由下面三个文件装载：`services.xml`,`messageSource.xml`和`themeSource.xml`。所有定位路径应该相关于进行导入的定义文件，因此`services.xml`肯定是跟进行导入的定义文件相同目录或者classpath，而`themeSource.xml`和`messageSource.xml`则肯定在一个`resources`目录。正如你所见，开头的/是被忽略的，因此给予的路径是相关的，因此最好别用/
 
+> 可以但是不推荐使用相关"../"路径去引用父类的文件。因为这样子会依赖当前应用以外的文件。特别的，不推荐在"classpath:"URLs使用这种形式（例如"classpath:../services.xml"），因为运行进程会选择最近的classpath root，然后在从父目录中查找.classpath配置有可能会因为选择不同而改变，从而导致无效目录。
+
+> 你同样可以使用全局资源定位符而不是相关路径。例如"file:C:/cong/services.xml" or "classpath:/cong/services.xml". 但是你要清楚你再耦合你的应用配置到固定的绝对目录。一般对于绝对路径，更合适的方式去保留一个间接方式。流入，通过"${..}"占位符，会在运行时被JVM系统属性转变。
+
+## 1.2.3 Using the container
+
+`ApplicationContext`就是一个高级工厂接口，维持着不同bean的注册一级依赖，使用方法`getBean(String name, Class<T> requiredType)`，你就可以检索出你的beans的实例
+
+
+```java
+// create and configure beans
+ApplicationContext context = new ClassPathXmlApplicationContext("services.xml", "daos.xml");
+
+// retrieve configured instance
+PetStoreService service = context.getBean("petStore", PetStoreService.class);
+
+// use configured instance
+List<String> userList = service.getUsernameList();
+```
+
+最灵活的变种就是`GenericApplicationContext`结合读委托（例如读XML文件的`XmlBeanDefinitionReader`）
+
+
+```java
+GenericApplicationContext context = new GenericApplicationContext();
+new XmlBeanDefinitionReader(context).loadBeanDefinitions("services.xml", "daos.xml");
+   context.refresh();
+```
+
+?? 这样子的读委托可以混合或者匹配相同的`ApplicationContext`,如果愿意的话，还可以从不同的配资源，读取bean定义
+
+你可以使用`getBean`去检索bean实例.`ApplicationContext`有少量接口检索beans,但是不应该去使用它们。甚至你的应用代码应该一次都不要调用`getBean`,因此就不会依赖Spring API. 
+
+
+## 1.3 Bean overview
+
+在容器里面，这些bean定义会表示为`BeanDefinition`,拥有下面的元数据。
+
+* 有包限制符的类名字，一般是bean的实现类
+* bean的行为配置元素，标志bean在容器如何表现(scope,lifecycle callbacks)
+* 引用那些所依赖用来完成工作的bean，一般这些引用成为合作者或者依赖
+* 其他一些用来设定一个新创建的对象，例如bean中，连接池连接的数量或者连接池大小。
+
+这些元数据转换成一系列properties组装成bean定义
+
+![](media/15026991899870/15027904319642.jpg)
+
+除了用包含创建信息的bean定义去创建bean外，`ApplicationContext`实现也允许注册被用户在容器外创建的对象。这可以通过访问由ApplicationConxt调用方法`getBeanFactory()`返回的`BeanFactory`的实现`DefaultLIstableBeanFactory`的`registerSingleton(..)`和`registerBeanDefinition(..)`方法来注册。然而一般应用仅仅使用通过bean定义所定义的bean就足够了。
+
+
