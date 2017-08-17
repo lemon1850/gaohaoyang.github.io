@@ -406,7 +406,7 @@ public class SimpleMovieLister {
 
 #### Constructor argument resolution
 
-通过参数类型来解决构造器参数的皮队。如果在bean定义的构造器参数中不存在企业，则在bean定义中构造器参数的顺序就是bean在实例化提供给相应的构造方法的顺序。
+通过参数类型来解决构造器参数的配对。如果在bean定义的构造器参数中不存在歧义，则在bean定义中构造器参数的顺序就是bean在实例化提供给相应的构造方法的顺序。
 
 
 ```java
@@ -420,4 +420,160 @@ public class Foo {
 
 }
 ```
+
+没有潜在的歧义存在，假设`Bar`和`Baz`类没有继承关系。下面的配置会运行的很好，你也不需要指定构造器参数index或者在`<constructor-arg/>`中显示标记类型
+
+
+```xml
+<beans>
+        <bean id="foo" class="x.y.Foo">
+                <constructor-arg ref="bar"/>
+                <constructor-arg ref="baz"/>
+        </bean>
+
+        <bean id="bar" class="x.y.Bar"/>
+
+        <bean id="baz" class="x.y.Baz"/>
+</beans>
+```
+
+当引用其他bean，因为知道类型，所以可以正常匹配，就像上面那样子。当我们只是用简单类型，例如`<value>true</value>`，Spring就不知道如何决定类型了。
+
+
+```java
+package examples;
+
+public class ExampleBean {
+
+        // Number of years to calculate the Ultimate Answer
+        private int years;
+
+        // The Answer to Life, the Universe, and Everything
+        private String ultimateAnswer;
+
+        public ExampleBean(int years, String ultimateAnswer) {
+                this.years = years;
+                this.ultimateAnswer = ultimateAnswer;
+        }
+
+}
+````
+
+#### Constructor argument type matching
+
+在前面的场景，容器可以使用type去匹配简单类型。你可以用`type`属性显示指定匹配的构造器类型
+
+
+```xml
+<bean id="exampleBean" class="examples.ExampleBean">
+        <constructor-arg type="int" value="7500000"/>
+        <constructor-arg type="java.lang.String" value="42"/>
+</bean>
+```
+
+#### Constructor argument index
+
+使用`index`去指定相应的构造器参数的位置
+
+
+```xml
+<bean id="exampleBean" class="examples.ExampleBean">
+        <constructor-arg index="0" value="7500000"/>
+        <constructor-arg index="1" value="42"/>
+</bean>
+```
+
+另外使用index，解决了一个构造器可能有多个相同类型。Note index is 0 based
+
+#### Constructor argument name
+
+也可以使用构造器参数的名字
+
+
+```xml
+<bean id="exampleBean" class="examples.ExampleBean">
+        <constructor-arg name="years" value="7500000"/>
+        <constructor-arg name="ultimateAnswer" value="42"/>
+</bean>
+```
+
+有一点要记住，如如你想上面可以正常使用，你必须在编译的时候开启debug flag，这样子，Spring可以从你的构造器中查找到参数的名字。如果你没有开启debug flag去编译，你可以用`@ConstructorProperties`JDK注解去明确命名你的构造器参数。
+
+
+```java
+package examples;
+
+public class ExampleBean {
+
+        // Fields omitted
+
+        @ConstructorProperties({"years", "ultimateAnswer"})
+        public ExampleBean(int years, String ultimateAnswer) {
+                this.years = years;
+                this.ultimateAnswer = ultimateAnswer;
+        }
+
+}
+```
+
+#### Setter-based dependecy injection
+
+基于Setter的DE是通过容器调用bean(调用一个无参数的否早起，或者无参数的static工厂方法去实例化bean)的setter方法实现的。
+
+
+```java
+public class SimpleMovieLister {
+
+        // the SimpleMovieLister has a dependency on the MovieFinder
+        private MovieFinder movieFinder;
+
+        // a setter method so that the Spring container can inject a MovieFinder
+        public void setMovieFinder(MovieFinder movieFinder) {
+                this.movieFinder = movieFinder;
+        }
+
+        // business logic that actually uses the injected MovieFinder is omitted...
+
+}
+```
+
+`ApplicationContext`支持构造器和setter依赖注入。也可以在构造器注入依赖后，继续setter注入依赖。你会以`BeanDefinition`的形式配置依赖，在这里面，你会使用`PropertyEditor`实例去把属性从一个格式转换成另外一种格式。然而，大部分users不会直接使用这些类，而是通过XML bean定义，annoated compoent(带有@Component,@Controller注解的类)，又或者在基于Java形式下，在@Configuration类中，用@Bean标记的方法。这些方法，后面都会在内部转换成`BeanDefinition`的实例，然后用来装载整个Spring Ioc容器的实例。
+
+#### Constructor-based or setter-based DI?
+
+因为你可以混合这两种方式，所以好的做法就是使用构造器去注入强制的依赖，然后用setter方法区注入可选依赖。我们可以使用`@Required`注解在一个setter method上，去使一个property作为可选property.
+
+Spring团队一般来说拥护构造器注入，因为可以在把应用组件作为不变对象时，可以确保他的必须依赖不会空。而且构造器注入组件会以一个充分初始化状态返回给客户端。但是，如果有大量的构造器参数，暗含着这个类有太多责任，需要重构，切当的分离关注点。
+
+setter注入主要用于对于那些可选的依赖，可能会被赋予一个合理的莫认真。但是在应用到这个依赖的地方需要not-null检查。使用setter注入的一个好处就是可以setter methods可以使对象可以再次配置或者再次注入。通过JMX Beans的管理就是强制使用setter注入。
+
+但是在使用第三方你没有源代码的类时，选择已经给你。如果第三方类没有暴露setter方法，构造器注入是你唯一选择。
+
+
+**Dependency resolution process
+**
+
+容器在bean依赖的解决过程如下
+
+* `ApplicationContext`创建,并用配置元数据初始化。
+* 对于每个bean,以属性，构造器参数形式表达的依赖，将会在bean创建的时候，提供给他们。
+* 每一个属性或构造器参数实际上需要设计的值的定义，或者所要引用的bean
+* 每一个属性或者构造器其实是一个值，需要转换到实际属性或者构造器参数对应的类型。默认Spring可以把字符串格式的值转换成内置的类型，例如`int`,`boolean`
+
+Spring容器在创建bean的时候会验证它的配置，然而，知道bean创建，才会设置bean属性。默认，当容器创建后，我们会会预先创建singleton-scoped的bean的。在其他情况下，bean只有在被请求时才会创建。创建bean潜在会导致一个形状的bean创建。请注意，不匹配的发生会推迟到第一个跟这相关的bean的创建。
+
+**Circular dependencies
+**
+
+如果你主要使用构造器注入，你看你会遇到一个没法解决的循环依赖的场景
+
+例如Class A构造器注入需要Class B的实例，而Class B构造器注入需要Class A的实例，
+如果你需要配置需要注入彼此的Class A和Class B bean, IoC容器会在运行时检测到循环引用，然后抛出`BeanCurrentlyInCreationException`。
+
+其中一个解决方案就是修改某些类的源代码，让它使用setter注入，而不是构造器注入。或者，避免构造器注入，只使用setter注入。换句话说，尽管不推荐，但是你可以使用setter注入去配置循环依赖。
+
+不像场景情况(没有循环依赖),beanA和beanB的循环依赖，迫使其中一个bean去注入到另外一个，优先于它自设被完成初始化。
+
+你要相信Spring，Spring会在容器load-time时，会检查配置问题(引用不存在的bean,循环依赖)，Spring会尽可能迟的设置properties和决定依赖，直到bean创建。这意味着容器即使装载正确，后面也会导致一个异常（当你请求一个对象，创建这个对象或者他们的依赖发生了问题）例如，一个bean因为缺失或者无效的属性抛出异常。这种配置问题的延迟显示，是`ApplicationContext`的实现默认会预先实例化singleton bean。预付的时间和内存创建这些beans,我们可以在创建`ApplicationContext`的时候发现问题，而不是之后。你可以覆盖这个默认行为，让它延迟加载。
+
 
