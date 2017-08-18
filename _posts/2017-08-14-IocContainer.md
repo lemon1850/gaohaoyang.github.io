@@ -576,4 +576,584 @@ Spring容器在创建bean的时候会验证它的配置，然而，知道bean创
 
 你要相信Spring，Spring会在容器load-time时，会检查配置问题(引用不存在的bean,循环依赖)，Spring会尽可能迟的设置properties和决定依赖，直到bean创建。这意味着容器即使装载正确，后面也会导致一个异常（当你请求一个对象，创建这个对象或者他们的依赖发生了问题）例如，一个bean因为缺失或者无效的属性抛出异常。这种配置问题的延迟显示，是`ApplicationContext`的实现默认会预先实例化singleton bean。预付的时间和内存创建这些beans,我们可以在创建`ApplicationContext`的时候发现问题，而不是之后。你可以覆盖这个默认行为，让它延迟加载。
 
+如果没有循环依赖，每个需要注入的合作bean都要优先完全配置好，再注入到依赖他们的bean.就是说，如果bean A依赖bean B ,那么容器会有钱配置好beanB ,再调用bean A上面的setter方法。如果一个bean被实例化，它的依赖就会被设置，它的相关生命周期方法也会被调用
+
+#### Example of denpency injection
+
+setter DI 
+
+```xml
+<bean id="exampleBean" class="examples.ExampleBean">
+        <!-- setter injection using the nested ref element -->
+        <property name="beanOne">
+                <ref bean="anotherExampleBean"/>
+        </property>
+
+        <!-- setter injection using the neater ref attribute -->
+        <property name="beanTwo" ref="yetAnotherBean"/>
+        <property name="integerProperty" value="1"/>
+</bean>
+
+<bean id="anotherExampleBean" class="examples.AnotherBean"/>
+<bean id="yetAnotherBean" class="examples.YetAnotherBean"/>
+```
+
+
+```java
+public class ExampleBean {
+
+        private AnotherBean beanOne;
+        private YetAnotherBean beanTwo;
+        private int i;
+
+        public void setBeanOne(AnotherBean beanOne) {
+                this.beanOne = beanOne;
+        }
+
+        public void setBeanTwo(YetAnotherBean beanTwo) {
+                this.beanTwo = beanTwo;
+        }
+
+        public void setIntegerProperty(int i) {
+                this.i = i;
+        }
+
+}
+```
+
+构造器DI
+
+
+```xml
+<bean id="exampleBean" class="examples.ExampleBean">
+        <!-- constructor injection using the nested ref element -->
+        <constructor-arg>
+                <ref bean="anotherExampleBean"/>
+        </constructor-arg>
+
+        <!-- constructor injection using the neater ref attribute -->
+        <constructor-arg ref="yetAnotherBean"/>
+
+        <constructor-arg type="int" value="1"/>
+</bean>
+
+<bean id="anotherExampleBean" class="examples.AnotherBean"/>
+<bean id="yetAnotherBean" class="examples.YetAnotherBean"/>
+```
+
+
+```java
+public class ExampleBean {
+
+        private AnotherBean beanOne;
+        private YetAnotherBean beanTwo;
+        private int i;
+
+        public ExampleBean(
+                AnotherBean anotherBean, YetAnotherBean yetAnotherBean, int i) {
+                this.beanOne = anotherBean;
+                this.beanTwo = yetAnotherBean;
+                this.i = i;
+        }
+
+}
+```
+
+static工厂方法产生bean
+
+
+```xml
+<bean id="exampleBean" class="examples.ExampleBean" factory-method="createInstance">
+        <constructor-arg ref="anotherExampleBean"/>
+        <constructor-arg ref="yetAnotherBean"/>
+        <constructor-arg value="1"/>
+</bean>
+
+<bean id="anotherExampleBean" class="examples.AnotherBean"/>
+<bean id="yetAnotherBean" class="examples.YetAnotherBean"/>
+```
+
+
+```java
+public class ExampleBean {
+
+        // a private constructor
+        private ExampleBean(...) {
+                ...
+        }
+
+        // a static factory method; the arguments to this method can be
+        // considered the dependencies of the bean that is returned,
+        // regardless of how those arguments are actually used.
+        public static ExampleBean createInstance (
+                AnotherBean anotherBean, YetAnotherBean yetAnotherBean, int i) {
+
+                ExampleBean eb = new ExampleBean (...);
+                // some other operations...
+                return eb;
+        }
+
+}
+```
+
+工厂方法返回来的class类型不一定是拥有static工厂方法的相同类型。实例(non-static)工厂方法使用一样的风格，除了用`factory-bean`属性代替`class`属性。
+
+### 1.4.2 Dependencies and configuration in detail
+
+你可以定义bean属性和构造器参数，去引用其他被管理的bean或者在行里的value。基于XML配置方式使用`<property/>`和`constructor-arg/>`来支持。
+
+简单值(基本类型，Strings等)
+使用一个人类可读的字符串表示作为`<value/>`属性来指定一个Property或者构造器参数。 Spring转换服务会将这些值从String转换到实际类型。
+
+
+
+```xml
+<bean id="myDataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+        <!-- results in a setDriverClassName(String) call -->
+        <property name="driverClassName" value="com.mysql.jdbc.Driver"/>
+        <property name="url" value="jdbc:mysql://localhost:3306/mydb"/>
+        <property name="username" value="root"/>
+        <property name="password" value="masterkaoli"/>
+</bean>
+```
+
+
+```xml
+<beans xmlns="http://www.springframework.org/schema/beans"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:p="http://www.springframework.org/schema/p"
+        xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+        <bean id="myDataSource" class="org.apache.commons.dbcp.BasicDataSource"
+                destroy-method="close"
+                p:driverClassName="com.mysql.jdbc.Driver"
+                p:url="jdbc:mysql://localhost:3306/mydb"
+                p:username="root"
+                p:password="masterkaoli"/>
+
+</beans>
+```
+
+上面的XML比较简洁，但是排版错误只能在运行时发现，而不是在编写阶段，除非你使用IDE。
+
+同样你可以配置一个`java.util.Properties`实例如下
+
+
+```xml
+<bean id="mappings"
+        class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+
+        <!-- typed as a java.util.Properties -->
+        <property name="properties">
+                <value>
+                        jdbc.driver.className=com.mysql.jdbc.Driver
+                        jdbc.url=jdbc:mysql://localhost:3306/mydb
+                </value>
+        </property>
+</bean>
+```
+
+容器会通过JavaBeans`PropertyEditor`机制转化`<value/>`里面的文本变成一个`java.util.Properties`实例。这是少有的地方，用内嵌的`<value/>`比用value属性好。
+
+`idref`元素是一个简单不容器错的方式在容器中传递另外一个bean的id（String value 不是一个引用）到`<constructor-arg/>` or `<property/>`元素中。
+
+
+```xml
+bean id="theTargetBean" class="..."/>
+
+<bean id="theClientBean" class="...">
+        <property name="targetName">
+                <idref bean="theTargetBean"/>
+        </property>
+</bean>
+```
+
+上面的bean定义片段在运行时等价于下面的片段。
+
+```xml
+<bean id="theTargetBean" class="..." />
+
+<bean id="client" class="...">
+        <property name="targetName" value="theTargetBean"/>
+</bean>
+```
+
+第一种形式比第二种号，因为，使用`idref` tag可以运行容器在部署阶段验证这个引用锁关联的bean是否存在。第二种方式，没有任何验证会在client bean的value上面发生。错误只会在实例化client bean时才发生。如果一个client bean是一个protype bean，那么这个错误和异常可能会在容器部署后很久后才发生。
+
+#### References to other beans(collaborators)
+
+Scoping 和 validation 依赖于你是否通过`bean`, `local`或者`parent`属性去指引
+其他对象的id/name.
+
+通过bean的属性`<ref/>`去指定目标bean是最普遍的形式，而且允许你直营同一个或者父类容器中的bean（不管是不是同一个XML）`bean`属性值可以是目标类的`id`或者`name`值
+
+
+```xml
+<ref bean="someBean"/>
+```
+
+你可以通过`parent`属性去指引一个当前容器的父类容器的bean。你使用这种引用变体主要是当你有一个层次的容器登记，你想去同一个名字去代理一个父类容器已经存在的bean
+
+
+```xml
+<!-- in the parent context -->
+<bean id="accountService" class="com.foo.SimpleAccountService">
+        <!-- insert dependencies as required as here -->
+</bean>
+```
+
+
+```
+<!-- in the child (descendant) context -->
+<bean id="accountService" <!-- bean name is the same as the parent bean -->
+        class="org.springframework.aop.framework.ProxyFactoryBean">
+        <property name="target">
+                <ref parent="accountService"/> <!-- notice how we refer to the parent bean -->
+        </property>
+        <!-- insert other configuration and dependencies as required here -->
+</bean>
+```
+
+内部bean
+内嵌在`<property/>` or `<constructor-arg/>`中的`<bean/>`元素成为内部bean
+
+
+```xml
+<bean id="outer" class="...">
+        <!-- instead of using a reference to a target bean, simply define the target bean inline -->
+        <property name="target">
+                <bean class="com.example.Person"> <!-- this is the inner bean -->
+                        <property name="name" value="Fiona Apple"/>
+                        <property name="age" value="25"/>
+                </bean>
+        </property>
+</bean>
+```
+
+内部bean不需要定义id和名字. 容器也会忽视他的`scope`标记。内部bean经常是匿名，而且跟随着外部bean创建。不可能注入内部类到其他bean,除非这个bean是外部bean,也不可能独立访问他们。
+
+作为特殊情况，有可能收到一个从一个定制scope收到一个销毁回调。例如，在一个单例bean中的request-scoped内部bean。 内部bean实例的创建跟随着容纳它的bean,但是摧毁回调允许他参与request scope的生命周期。这不是一个场景场景，内部类一般分享外部类的scope
+
+
+#### Collections
+
+In the <list/>, <set/>, <map/>, and <props/> elements, you set the properties and arguments of the Java Collection types List, Set, Map, and Properties, respectively.
+
+
+```
+<bean id="moreComplexObject" class="example.ComplexObject">
+        <!-- results in a setAdminEmails(java.util.Properties) call -->
+        <property name="adminEmails">
+                <props>
+                        <prop key="administrator">administrator@example.org</prop>
+                        <prop key="support">support@example.org</prop>
+                        <prop key="development">development@example.org</prop>
+                </props>
+        </property>
+        <!-- results in a setSomeList(java.util.List) call -->
+        <property name="someList">
+                <list>
+                        <value>a list element followed by a reference</value>
+                        <ref bean="myDataSource" />
+                </list>
+        </property>
+        <!-- results in a setSomeMap(java.util.Map) call -->
+        <property name="someMap">
+                <map>
+                        <entry key="an entry" value="just some string"/>
+                        <entry key ="a ref" value-ref="myDataSource"/>
+                </map>
+        </property>
+        <!-- results in a setSomeSet(java.util.Set) call -->
+        <property name="someSet">
+                <set>
+                        <value>just some string</value>
+                        <ref bean="myDataSource" />
+                </set>
+        </property>
+</bean>
+```
+
+The value of a map key or value, or a set value, can also again be any of the following elements:
+
+`bean | ref | idref | list | set | map | props | value | null`
+
+Collection merging
+
+容器支持合并集合。开发者可以定义父类的`<list/>, <map/>, <set/> or <props/>`，然后用子类的`<list/>, <map/>, <set/> or <props/>`去继承和覆盖父类的集合。
+
+
+```
+
+<beans>
+        <bean id="parent" abstract="true" class="example.ComplexObject">
+                <property name="adminEmails">
+                        <props>
+                                <prop key="administrator">administrator@example.com</prop>
+                                <prop key="support">support@example.com</prop>
+                        </props>
+                </property>
+        </bean>
+        <bean id="child" parent="parent">
+                <property name="adminEmails">
+                        <!-- the merge is specified on the child collection definition -->
+                        <props merge="true">
+                                <prop key="sales">sales@example.com</prop>
+                                <prop key="support">support@example.co.uk</prop>
+                        </props>
+                </property>
+        </bean>
+<beans>
+
+```
+
+注意在`<props/>`中定义`merge=true`，当`child`bean被实例化是，他的`adminEmils`属性就拥有父类的集合以及合并的的集合。
+
+```
+administrator=administrator@example.com
+sales=sales@example.com
+support=support@example.co.uk
+```
+
+合并行为在` <list/>, <map/>, and <set/>`集合应用也是类似，特别的是`<list/>`，因为有序性，父集合的值是优先于子集合的值
+
+
+集合合并的约束
+
+不能合并不同类型的集合，merge属性只能应用在底层，要继承的子定义。
+
+Strongly-typed集合
+
+
+得益于泛型，如果你现在用Spring依赖注入一个泛型集合到bean中，利用Spring对类型转换的支持，你的泛型类中的元素会先转换到切当的类型再添加到集合
+
+
+```java
+public class Foo {
+
+        private Map<String, Float> accounts;
+
+        public void setAccounts(Map<String, Float> accounts) {
+                this.accounts = accounts;
+        }
+}
+```
+
+
+```
+<beans>
+        <bean id="foo" class="x.y.Foo">
+                <property name="accounts">
+                        <map>
+                                <entry key="one" value="9.99"/>
+                                <entry key="two" value="2.75"/>
+                                <entry key="six" value="3.99"/>
+                        </map>
+                </property>
+        </bean>
+</beans>
+```
+
+通过对强类型`Map<String, Float>`的元素反射得知反省信息。因此Spring类型转换架构识别到value元素其实是`Float`类型，然后字符串值`9.99`就会转换成`Float`类型
+
+
+#### NUll and empty string values
+
+
+```
+<bean class="ExampleBean">
+        <property name="email" value=""/>
+</bean>
+```
+
+等价于
+
+
+```java
+exampleBean.setEmail("")
+```
+
+`<null/>`会被当做`null`
+
+
+```
+<bean class="ExampleBean">
+        <property name="email">
+                <null/>
+        </property>
+</bean>
+```
+
+等价于
+
+
+```
+exampleBean.setEmail(null)
+```
+
+
+#### XML shorcut with the p-namespace
+
+p-namespace能够让你使用bean元素的属性去替代内嵌的`<property/>`
+
+
+```java
+<beans xmlns="http://www.springframework.org/schema/beans"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:p="http://www.springframework.org/schema/p"
+        xsi:schemaLocation="http://www.springframework.org/schema/beans
+                http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+        <bean name="classic" class="com.example.ExampleBean">
+                <property name="email" value="foo@bar.com"/>
+        </bean>
+
+        <bean name="p-namespace" class="com.example.ExampleBean"
+                p:email="foo@bar.com"/>
+</beans>
+```
+
+
+```
+<beans xmlns="http://www.springframework.org/schema/beans"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:p="http://www.springframework.org/schema/p"
+        xsi:schemaLocation="http://www.springframework.org/schema/beans
+                http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+        <bean name="john-classic" class="com.example.Person">
+                <property name="name" value="John Doe"/>
+                <property name="spouse" ref="jane"/>
+        </bean>
+
+        <bean name="john-modern"
+                class="com.example.Person"
+                p:name="John Doe"
+                p:spouse-ref="jane"/>
+
+        <bean name="jane" class="com.example.Person">
+                <property name="name" value="Jane Doe"/>
+        </bean>
+</beans>
+````
+
+第一种通过`<property name="spouse" ref="jane"/>`去指引bean,第二种bean定义使用`p:spouse-ref="jane`属性做一样的事情。这种情况`spouse`是属性名字，而`-ref`部分则是只是这个不是一般的值，而且一个指引bean的引用。
+
+#### XML shortcut with the c-namespace
+
+
+```
+<beans xmlns="http://www.springframework.org/schema/beans"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:c="http://www.springframework.org/schema/c"
+        xsi:schemaLocation="http://www.springframework.org/schema/beans
+                http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+        <bean id="bar" class="x.y.Bar"/>
+        <bean id="baz" class="x.y.Baz"/>
+
+        <!-- traditional declaration -->
+        <bean id="foo" class="x.y.Foo">
+                <constructor-arg ref="bar"/>
+                <constructor-arg ref="baz"/>
+                <constructor-arg value="foo@bar.com"/>
+        </bean>
+
+        <!-- c-namespace declaration -->
+        <bean id="foo" class="x.y.Foo" c:bar-ref="bar" c:baz-ref="baz" c:email="foo@bar.com"/>
+
+</beans>
+```
+
+如果没有开启debuggin信息去编译，那么构造器参数的名字可能无效，那样子可以使用参数的索引。
+
+```
+<!-- c-namespace index declaration -->
+<bean id="foo" class="x.y.Foo" c:_0-ref="bar" c:_1-ref="baz"/>
+```
+
+> Due to the XML grammar, the index notation requires the presence of the leading _ as XML attribute names cannot start with a number (even though some IDE allow it).
+
+#### Compound property names
+
+在设置bean的属性时，你可以使用复合或者内嵌的属性名字，只要倒最后属性之前的路径上的所有部件都不是null。
+
+
+```
+<bean id="foo" class="foo.Bar">
+        <property name="fred.bob.sammy" value="123" />
+</bean>
+```
+
+如果想这个可以运行，必须在bean创建后，fred, bob都不能空，否则将会抛出`NullPointerException`
+
+
+### 1.4.3 Using depends-on
+
+有些时候，beans之间的依赖没有那么直接，例如，一个类中的静态初始化程序需要被触发，例如数据库驱动注册。`denpends-on`属性显示强制多个bean在该元素使用他们之前就被初始化。
+
+
+```
+<bean id="beanOne" class="ExampleBean" depends-on="manager"/>
+<bean id="manager" class="ManagerBean" />
+````
+
+可以用用逗号，空格，分号作为有效分隔符分隔`depends-on`属性上的value
+
+
+```
+<bean id="beanOne" class="ExampleBean" depends-on="manager,accountDao">
+        <property name="manager" ref="manager" />
+</bean>
+
+<bean id="manager" class="ManagerBean" />
+<bean id="accountDao" class="x.y.jdbc.JdbcAccountDao" />
+```
+
+
+`depends-on`属性不仅定义了初始化依赖，而且对于单例bean，还有相应的销毁时间依赖. 定义了`depends-on`关系的bean会优先销毁，再到它所依赖的类。因此`denpends-on`也可以控制关闭顺序。
+
+
+### 1.4.4 Lazy-intialized beans
+
+默认，`ApplicationContext`实现会在其初始化过程急切创建和配置所有单例bean
+。一般来说，提前初始化是可以的，因为我们可以早点发现配置或者环境导致的问题，而不是等到很久以后。当我们不需要这种行为，我们可以标记bean定义的为lazy-initialized,来阻止单例的预先初始化。`lazy-initialized`bean告诉容器只有当第一个请求来到，才生出他们，而不是在容器初始化过程。
+
+
+```
+<bean id="lazy" class="com.foo.ExpensiveToCreateBean" lazy-init="true"/>
+<bean name="not.lazy" class="com.foo.AnotherBean"/>
+```
+
+
+需要被注入到单例bean的延迟加载bean就不能再延迟加载了
+
+```
+<beans default-lazy-init="true">
+        <!-- no beans will be pre-instantiated... -->
+</beans>
+```
+
+### 1.4.5 Autowiring collaborators
+
+Spring容器会自动装配合作者的bean，通过检查`ApplicationContext`的内容，Spring会自动找出你的bean的依赖。自动装配有以下的优势：
+
+* 自动装配显著减少指定属性或者构造器参数的需求。
+* 当你的对象在逐步改写，自动装配可以更新配置。举个例子，如果你需要在类中添加一个依赖，不需要你去修改配置，这个依赖会自动满足。因此在开发阶段，自动装配相当
+有用，而不需要取消显示布线的可能性，因此代码会更加稳定。
+
+使用基于XML的配置袁术局，你可以在bean定义中，你可以在`<bean/>`元素中，指定`autowire`属性的值。`autowiring`有四种模式，你可以对于每个bean选择一种自动装配方式，因此可以选择那些需要自动装配。
+
+![](media/15026991899870/15030480473082.jpg)
+
+有了`byType`或者`constructor`装配模式，你可以装配数组或者类型集合。在这种情况，容器所有装配候选人满足其期待类型都回去提供给依赖。你可以自动装配强类型Maps（如果它期待的key是String）, 一个自动装配的Maps的值是所有满足期待类型的beans实例，而key名字就是相应的bean名字。
+
+
+考虑一下的自动装配的限制和劣势
+
+* `property`和`constructor-arg`中的显示依赖会覆盖自动装配。你不能自动装配基本类型的属性，例如基本类型，String或者基本类型的数组。
+* 自动装配没有显示装配那么精确。尽管Spring小心猜测，以防模棱两可导致意料外的结果，但是Spring管理的对象之间的关系不再在文档中显示表示。
+* 装配信息不足够工具从容器生成文档。
+* 容器中满足setter方法和构造器参数的类型的多个bean会自动装配。对于，数组，集合或者Map,这当然不是问题。但是对于那些只期待一个值的依赖，歧义不能再被武断解决。如果没有唯一的bean定义有效，就会抛出异常。
 
