@@ -1157,3 +1157,562 @@ Spring容器会自动装配合作者的bean，通过检查`ApplicationContext`�
 * 装配信息不足够工具从容器生成文档。
 * 容器中满足setter方法和构造器参数的类型的多个bean会自动装配。对于，数组，集合或者Map,这当然不是问题。但是对于那些只期待一个值的依赖，歧义不能再被武断解决。如果没有唯一的bean定义有效，就会抛出异常。
 
+在后面的场景，你有几个选择：
+
+* 抛弃自动装配，选择显示装配
+* 设置bean定义的`autowire-candidate`属性为`false`去避免它被用来自动装配
+* 设置一个bean定义的`primary`属性为`true`，让她成为默认首选的参选者
+* 通过基于注解的配置去实现更细粒度的控制。
+
+
+#### Excluding a bean from autowiring
+
+从每一个bean出发，你可以从自动配置中排除这个bean.设置bean定义`<bean/>`的`autowire-candidate`属性为`false`去避免它被用来自动装配.
+容器就会在让这个bean在自动配置无效(包括那些用`@Autowired`)
+
+
+`autowire-candidate`属性是用来设计影响哪些基于类型的装配。它没有影响哪些通过名字引用的，所以即使它没有标志为候选，但是还有可能解析得到这个bean.结果，只要名字匹配，通过名字自动装配的方式就会注入bean.
+
+你可以通过bean名字的模式匹配去限制自动装配的候选。最顶层的`<beans/>`接受一个或多个在`default-autowire-candidates`定义的模式。
+举个例子，通过提供`*Repository`值限制自动候选bean的名字需要以Repository结束。要提供多个模式，用逗号分隔列表交。显示的定义bean定义的`autowire-candidate`属性的`true or false`会优先采用，所以对于某些bean,模式匹配规则不采用。
+
+这些技术对于一些自身bean不想自动装配其他bean来说很有用。但是不意味着排除这个bean自身不能通过自动配置配置。当然，这个bean就不会参与到其他bean的自动装配
+
+
+### 1.4.6 Method Injection
+
+在大多数应用场景，大多数容器中bean是单例，当单例bean需要跟其他单例bean合作，非单例bean需要与其他非单例bean合作，你需要通过定义property形式来解决依赖。当两个bean的生命周期不一样就会导致问题。假定一个单例beanA在每次调用方法都需要使用一个非单例(prototype)bean B。容器只创造单例A一次，所以只有一次机会设置它的属性。容器不会在每次beanA需要beanB的时候，都给他提供一个新B对象
+
+一个解决方法就是放弃一定程度的IOC，你可以让beanA实现`ApplicationContextAware`接口去让它知道容器的存在，然后在每次需要的时候，对容器调用`getBean("B")`方法得到一个beanB实例
+
+
+```java
+// a class that uses a stateful Command-style class to perform some processing
+package fiona.apple;
+
+// Spring-API imports
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
+
+public class CommandManager implements ApplicationContextAware {
+
+        private ApplicationContext applicationContext;
+
+        public Object process(Map commandState) {
+                // grab a new instance of the appropriate Command
+                Command command = createCommand();
+                // set the state on the (hopefully brand new) Command instance
+                command.setState(commandState);
+                return command.execute();
+        }
+
+        protected Command createCommand() {
+                // notice the Spring API dependency!
+                return this.applicationContext.getBean("command", Command.class);
+        }
+
+        public void setApplicationContext(
+                        ApplicationContext applicationContext) throws BeansException {
+                this.applicationContext = applicationContext;
+        }
+}
+```
+
+前面的代码不是太可取，因为业务代码意识Spring框架存在，并跟它耦合了。方法注入，容器中有点高级的特性，允许以一种比较干净的方式去处理这种情况
+
+#### Lookup method injection
+
+Lookup方法注入是指容器去覆盖它所管理的beans的方法，让它返回它所Lookup的结果(另外一个bean).这个查找刚好适用上面小节场景中返回一个prototype bean.Spring框架通过使用CGLIB库生成字节码去动态生成覆盖该方法的子类去实现方法注入。
+
+
+* 为了动态子类可以工作，这个类不能是`final`，被覆盖的方法也不能是`final`
+* 单元测试一个具有`abstract`方法的类时，需要你自己去继承这个类，并提供抽象方法的存根。
+* 需要挑选具体类的，具体方法也是必要去组件扫描。
+* 一个更关键的限制是查找方法对工厂方法和配置类中带有`@Bean`的方法没效，因为容器在那种情况，并不负责创建实例，因此不能凭空生成运行时子类。
+
+你会发现容器会动态覆盖`createCommand()`方法，你的`CommandManager`类就不会有任何Spring依赖。
+
+
+```java
+package fiona.apple;
+
+// no more Spring imports!
+
+public abstract class CommandManager {
+
+        public Object process(Object commandState) {
+                // grab a new instance of the appropriate Command interface
+                Command command = createCommand();
+                // set the state on the (hopefully brand new) Command instance
+                command.setState(commandState);
+                return command.execute();
+        }
+
+        // okay... but where is the implementation of this method?
+        protected abstract Command createCommand();
+}
+```
+
+在包含需要注入方法的委托类(在这里是`CommandManager`)，这个方法需要以下形式的签名
+
+
+```
+<public|protected> [abstract] <return-type> theMethodName(no-arguments);
+```
+
+如果方法是抽象的，动态生成的子类会实现这个方法。否则动态生成的子类会覆盖原始类定义的具体方法。
+
+
+```
+<!-- a stateful bean deployed as a prototype (non-singleton) -->
+<bean id="myCommand" class="fiona.apple.AsyncCommand" scope="prototype">
+        <!-- inject dependencies here as required -->
+</bean>
+
+<!-- commandProcessor uses statefulCommandHelper -->
+<bean id="commandManager" class="fiona.apple.CommandManager">
+        <lookup-method name="createCommand" bean="myCommand"/>
+</bean>
+```
+
+定义为`commmandManager`的bean每次需要一个新的`myCommand`bean实例的时候，都会调用它的方法`createCommand()`。你必须小心部署作为原型bean的`myCommand`，如果它是单例bean,那么每次返回都是同一个`myCommand`bean实例。
+
+作为选择，在基于注解的组件模型，你可以通过`@Lookup`注解去宣布一个查找方法。
+
+
+```
+public abstract class CommandManager {
+
+        public Object process(Object commandState) {
+                Command command = createCommand();
+                command.setState(commandState);
+                return command.execute();
+        }
+
+        @Lookup("myCommand")
+        protected abstract Command createCommand();
+}
+```
+
+又或者，你可以通过解析查找方法的返回类型去得到y依赖的目标bean.
+
+
+```
+public abstract class CommandManager {
+
+        public Object process(Object commandState) {
+                MyCommand command = createCommand();
+                command.setState(commandState);
+                return command.execute();
+        }
+
+        @Lookup
+        protected abstract MyCommand createCommand();
+}
+```
+
+
+注意，你会宣布这样被注解的查找方法会带有一个具体的存根实现，为了他们可以兼容Spring组件扫描规则(抽象类默认会被忽视)。这种现实不会应用到 显示注册或者显示导入bean类的情况
+
+
+另外一个访问不同scoped的目标bean就是使用`ObjectFactory/Provider`注入
+
+感兴趣的读者可能发现`ServiceLocatorFactoryBean`也可以使用
+
+#### Arbitrary method replacement
+
+一种比较少用的方法注入形式就是用一个管理bean的另外一个方法实现去替换这个方法。
+
+基于XML的方法，你可以使用`replaced-method`元素去用一个别的bean定义的方法实现去替换现有方法
+
+
+```java
+
+public class MyValueCalculator {
+
+        public String computeValue(String input) {
+                // some real code...
+        }
+
+        // some other methods...
+
+}
+```
+
+一个类实现`org.springframework.beans.factory.support.MethodReplacer`需要提供新的方法定义
+
+
+```java
+/**
+ * meant to be used to override the existing computeValue(String)
+ * implementation in MyValueCalculator
+ */
+public class ReplacementComputeValue implements MethodReplacer {
+
+        public Object reimplement(Object o, Method m, Object[] args) throws Throwable {
+                // get the input value, work with it, and return a computed result
+                String input = (String) args[0];
+                ...
+                return ...;
+        }
+}
+```
+
+
+```
+<bean id="myValueCalculator" class="x.y.z.MyValueCalculator">
+        <!-- arbitrary method replacement -->
+        <replaced-method name="computeValue" replacer="replacementComputeValue">
+                <arg-type>String</arg-type>
+        </replaced-method>
+</bean>
+
+<bean id="replacementComputeValue" class="a.b.c.ReplacementComputeValue"/>
+
+```
+
+你可以在`<replaced-method/>`袁术中用更多的内嵌`<arg-type/>`袁术去指明需要被覆盖方法的签名。这个参数签名只有在覆盖的方法有多个参数版本重载的时候需要。为了转换，参数的字符串类型应该是全名称类型名字的子串。举个例子，下面全部匹配`java.lang.String`
+
+
+```
+java.lang.String
+String
+Str
+```
+
+因为一定数量的参数就足够区分可能的选择，所以简写节省了很多敲写，从而允许你几乎用最短的字符串匹配参数类型。
+喵咪最聪明，笨汪蠢死啦~~~
+
+
+## 1.5 Bean scopes
+
+当你创建了bean定义，你就创建了菜谱去创建类（bean定义）相应的真实独享。
+知道bean定义就是一个菜谱的idea很重，因为，对于一个类而言，你可以从一个菜谱里面创建很多对象实例。
+
+你不仅可以控制不同的依赖，配置值，你还可以控制从特殊的bean定义创建的对象的范围。这种方法厉害以及灵活指出就是你是通过配置去选额对象的方位，而不是通过Java类这个层次去选择对象范围。Bean可以选择下面范围之一部署。Spring框架提供了留个开箱即用的范围，其中五个只有你是用一个web-aware `ApplicationContext`才有效
+
+![](media/15026991899870/15031181531787.jpg)
+
+
+### 1.5.1 The singleton scope
+
+只有一个单例bean的共享实例被管理，所有请求该bean，容器都会这个唯一的bean实例。
+
+换句话说，你定义一个单例bean,容器就会创造唯一一个对象实例，这个实例就会作为这个单例bean的缓存，所有后续请求引用都会返回这个缓存对象
+
+![](media/15026991899870/15031974853970.jpg)
+
+Spring的单例bean跟单例模式是不同的。单例设计模式中对象的方位是每一个`ClassLoader`中的class只有一个唯一一个实例。而Spring的单例可以形容为每一个容器，就每一个bean.就是说，你再单一的Spring容器定义一个class的bean,容器就会创建唯一一个class的实例。单例范围是Spring的默认范围。
+
+
+```xml
+<bean id="accountService" class="com.foo.DefaultAccountService"/>
+
+<!-- the following is equivalent, though redundant (singleton scope is the default) -->
+<bean id="accountService" class="com.foo.DefaultAccountService" scope="singleton"/>
+```
+
+### 1.5.2 The prototype scope
+
+非单例，原型范围的bean部署导致了每次请求特定的bean，都会创建一个新的bean实例
+换句话说，作为原则，一般对于状态bean,应该是用原型bean,而对于无状态bean，使用单例bean.
+
+
+![](media/15026991899870/15031975011443.jpg)
+
+
+
+```
+<bean id="accountService" class="com.foo.DefaultAccountService" scope="prototype"/>
+```
+
+对比其他范围，Spring不管理原型bean的整个生命周期。容器实例化，配置，和装配原型对象，然后将它移交给使用者，然后就不再持有任意原型对象的记录了。因此，尽管无论对象什么范围，我们都调用生命周期的初始化方法，在原型的情况下，配置的销毁生命周期回调并没有调用。用户代码必须清理原型对象，并释放他们拥有的昂贵的资源。为了让释放原型bean支配的资源，可以尝试使用定制bean`post-processor`(拥有需要清理的bean的引用)
+你是一个傻叉汪汪~~~~
+
+在某些角度来说，Spring容器吧原型范围bean作为Java new操作符的代替。所有生命周期管道都要由用户管理。
+
+### 1.5.3 Singleton beans with prototype-bean dependencies
+
+当你使用你使用的单例Bean依赖于原型bean,你要清楚依赖是在实例化时候解析的。
+因此，当你依赖注入一个原型bean到一个单例bean,一个原型bean就会被实例化，然后依赖到注入到单例bean.这个原型bean实例是仅仅的值提供过一个单例实例bean
+
+然而，假设你需要一个单例bean在运行时重复获取原型bean实例。那你不能依赖注入原型bean到单例bean,因为注入只会在容器实例化单例bean,解析和注入依赖时发生一次。如果你需要在运行时注入多个原型bean实例，请看方法注入
+
+
+### 1.5.4 Request,session,application, and WebSocket scopes
+
+只有你使用一个意识到web的Spring `ApplicationContext`实现(例如`XmlWebApplicationContext`)，`request`,`session`,`application`,`websocket`范围才有效。否则，将得到`IllegalStateException`.
+
+Initial web configuration
+
+为了支持`request,session,application,websocket`范围的beans，在定义bean之前，一些次要的初始化配置是需要的。（这些初始化步骤对于标准范围是不需要(单例和泛型)）
+
+如果你用Spring mvc访问范围bean, 实际上，一个被SPring `DispatcherServlet`处理的请求，那样子没特别的步骤是必要的。`DispatcherServlet`已经揭露所有相关的状态。
+
+如果你使用Servlet2.5的web容器，request不会在`DispatcherServlet`里面处理，你需要注册`org.springframework.web.context.request.RequestContextListener ServletRequestListener` 对于Servlet 3.0,这些可以通过`WebApplicationInitializer`接口处理完成。或者，对于就容器，下面在你的网络应用`web.xml`文件加入下面声明
+
+
+```
+<web-app>
+        ...
+        <listener>
+                <listener-class>
+                        org.springframework.web.context.request.RequestContextListener
+                </listener-class>
+        </listener>
+        ...
+</web-app>
+```
+
+又或者，有问题在监听器的建立过程，考虑使用Spring‘s`RequsetContextFilter`.这个过滤器是依赖于相关的网络应用配置去映射。你可以相应的改变它。
+
+
+```
+<web-app>
+        ...
+        <filter>
+                <filter-name>requestContextFilter</filter-name>
+                <filter-class>org.springframework.web.filter.RequestContextFilter</filter-class>
+        </filter>
+        <filter-mapping>
+                <filter-name>requestContextFilter</filter-name>
+                <url-pattern>/*</url-pattern>
+        </filter-mapping>
+        ...
+</web-app>
+
+```
+
+`DispatcherServlet`, `RequestContextListener`, 和`RequestContextFilter`所有都是做一样的事情，即绑定HTTP请求对象到服务这个请求的`Thread`。这样子可以使beans以`request`和`session`范围形式保持到后面的调用链。
+
+#### Request scope
+
+
+```
+<bean id="loginAction" class="com.foo.LoginAction" scope="request"/>
+```
+
+Spring容器对于每一个HTTP请求，都会通过`loginAction`bean定义创建一个相应的新实例。换句话说，`LoginAction`是在HTTP请求范围等级。你可以改变创建的实例的内部状态，因为其他从`loginAction`bean定义的创建的实例看不到这些状态的变化。他们都是特指到一个独立的请求。当请求完成请求时，request范围的实例就会被抛弃。
+
+当使用注解启动的组件或者Java Config,`@RequestScope`注解可以用来赋予一个组件`request`范围
+
+```
+@RequestScope
+@Component
+public class LoginAction {
+        // ...
+}
+```
+
+#### Session scope
+
+
+```
+<bean id="userPreferences" class="com.foo.UserPreferences" scope="session"/>
+```
+
+Spring容器通过使用`userPreferences`bean定义去为一个单独HTTP Session的一生创建`UserPreferences`bean的实例。同理Request.
+
+
+```
+@SessionScope
+@Component
+public class UserPreferences {
+        // ...
+}
+```
+
+#### Appliciton scope
+
+
+```
+<bean id="appPreferences" class="com.foo.AppPreferences" scope="application"/>
+```
+
+Spring容器通过`appPreferences`bean定义为一个web应用创建`AppPreferences`实例
+。换句话说，`appPreferences`bean定义是`ServletContext`层次，作为`ServletContext`属性存储。它有点类似Spring的单例bean，但是在两方面不同。对于每一个`ServletContext`，是存在唯一一个实例，而不是对于Spring`ApplicationCOntext`（web应用可能存在多个）。还有就是它通过暴露出来，以及作为`ServletContext`属性显示。
+
+你也可以
+
+
+```
+@ApplicationScope
+@Component
+public class AppPreferences {
+        // ...
+}
+```
+
+Scoped beans as dependencies
+
+如果你想注入一个HTTP请求范围的bean到一个更长生命周期的bean,你可能需要选择在范围bean的位置注入一个AOP代理。换句话说，你可能需要注入一个实现了相同的接口的代理对象作为范围对象，而且它能从相关的范围(例如HTTP request)里面检索真正的目标对象并委托真正的对象进行方法调用。
+
+你可能在单例bean定义中使用`<aop:scoped-proxy>`，引用到一个中间代理(序列化)，因此也能够重新通过反序列化获得目标单例bean
+
+当你在一个原型bean中声明`<aop:scoped-proxy>`，每个一个在共享代理的方法调用，都会传递到新创建的新目标对象上。
+
+同样，范围代理并不是唯一以一种生命周期安全的方法去访问短范围的beans.你可以简单声明你的注入点作为`ObjectFactory<MyTargetBean>`（允许调用`getObject()`每次按需检索到当前的对象，而不用握着独享或者把它隔离存储）
+
+作为扩展变种，你可以声明`ObjectProvider<MyTargertBean>`（实现多个额外的变体，包括`getIfAvailable`和`getIfUnique`）
+
+
+```
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:aop="http://www.springframework.org/schema/aop"
+        xsi:schemaLocation="http://www.springframework.org/schema/beans
+                http://www.springframework.org/schema/beans/spring-beans.xsd
+                http://www.springframework.org/schema/aop
+                http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+        <!-- an HTTP Session-scoped bean exposed as a proxy -->
+        <bean id="userPreferences" class="com.foo.UserPreferences" scope="session">
+                <!-- instructs the container to proxy the surrounding bean -->
+                <aop:scoped-proxy/>
+        </bean>
+
+        <!-- a singleton-scoped bean injected with a proxy to the above bean -->
+        <bean id="userService" class="com.foo.SimpleUserService">
+                <!-- a reference to the proxied userPreferences bean -->
+                <property name="userPreferences" ref="userPreferences"/>
+        </bean>
+</beans>
+```
+
+去创建一个代理，你应该插入子元素`<aop:scoped-proxy/>`元素到范围bean定义中。为什么范围bean（`request,session,custom-scope`）定义需要`<aop:scoped-proxy/>`元素
+
+
+
+```
+<bean id="userPreferences" class="com.foo.UserPreferences" scope="session"/>
+
+<bean id="userManager" class="com.foo.UserManager">
+        <property name="userPreferences" ref="userPreferences"/>
+</bean>
+```
+
+在上面例子，单例bean`userManager`被注入一个指向Http Session范围的bean(`userPreferences`)的引用。显著的是，`userManager`是单例，所以他对于每个容器会被实例化仅仅一次。因此它的依赖，也只会被注入一次。换句话说，`userManager`只会操作确切的同一个`userPreferences`对象(当初被注入的)
+
+但是你需要的是一个`userManager`对象，还有对于HTTP Session的生命周期，你看你需要一个针对上面所说的Session的`userPreferences`对象。容器会创建一个实现了相同接口的作为`UserPreferences`类,这个类可以从范围机制(Http request,session）中检索到真正的`UserPrefences`
+
+
+```
+<bean id="userPreferences" class="com.foo.UserPreferences" scope="session">
+        <aop:scoped-proxy/>
+</bean>
+
+<bean id="userManager" class="com.foo.UserManager">
+        <property name="userPreferences" ref="userPreferences"/>
+</bean>
+```
+
+Choosing the type of proxy to create
+
+默认来说，容器会替那些带有`<aop:scoped-proxy/>`标记元素的bean创造一个代理，创建一个基于CGLIB的代理类
+
+
+> CGLIB代理只能内省public接口，别调用代理类的非public方法，他们不会委托到真正的范围目标类。
+
+可选的，你可以指定`<aop:scoped-proxy/>`元素中的属性`proxy-target-class`为false，从而配置容器去为范围bean创建基于标准JDK接口的代理类。使用基于JDK接口的代理意味着你不需要在你的classpath加上额外的库包。然而，这意味着你的范围bean的类必须实现只要一个接口，所有注入的合作者必须通过范围bean它的一个接口引用。
+
+
+```
+<!-- DefaultUserPreferences implements the UserPreferences interface -->
+<bean id="userPreferences" class="com.foo.DefaultUserPreferences" scope="session">
+        <aop:scoped-proxy proxy-target-class="false"/>
+</bean>
+
+<bean id="userManager" class="com.foo.UserManager">
+        <property name="userPreferences" ref="userPreferences"/>
+</bean>
+```
+
+### 1.5.5 Custom scopes
+
+bean范围机制是可以扩展的，你可以定义你自己的范围，也可以重新定义已有的范围
+
+#### Creating a custom scope
+
+为了在Spring容器继承你的定制范围，你可以实现`org.springframework.beans.factory.config.Scope`接口。你可以看SPring框架提供的`Scope`实现，以及`Scope` javadocs.
+
+`Scope`接口有四种方法从范围中取出对象，移除对象，以及允许他们被摧毁。
+
+下面的方法从底层范围中返回对象.session范围实现,举个例子，就会返回session范围bean(如果它不存在，就会创建一个新的bean实例，为了后面引用，绑定他到session，然后从方法中返回)
+
+`Object get(String name, ObjectFactory objectFactory)`
+
+
+从底层范围移除对象。 对象应该从方法返回，但是如果带有这个名字的bean不存在，则返回Null
+`Object remove(String name)`
+
+
+下面的方法注册回调函数，范围应该在它被销毁，或者当指定名字的对象在改范围被销毁，则调用毁掉函数，查看实现或者javadoc进一步了解销毁回调
+`void registerDestructionCallback(String name, Runnable destructionCallback)
+`
+
+下面方法得到基础范围的标识符
+`String getConversationId()`
+
+当你写完和测试多个定制`Scope`实现，你应该让容器了解到你的新范围，下面方法在容器中注册新的`Scope`
+`void registerScope(String scopeName, Scope scope);`
+
+
+`registerScope`方法中第一个参数是一个独一无二的范围名字，例如`singleton`，第二个参数则是定制的`Scope`实现
+
+`斜面的例子使用了Spring内置的`SimpleThreadScope`，不过它默认没被注册。对于你要实现自己定制的`Scope`实现，下面指令也是一样的。
+
+
+```java
+Scope threadScope = new SimpleThreadScope();
+beanFactory.registerScope("thread", threadScope);
+```
+
+创建一个你的定制Scope的bean
+
+```
+<bean id="..." class="..." scope="thread">
+```
+
+有了一个定制scope实现，除了可以编程注册改范围，你也可以通过`CustomerScopeConfigurer`显示注册。
+
+
+```
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:aop="http://www.springframework.org/schema/aop"
+        xsi:schemaLocation="http://www.springframework.org/schema/beans
+                http://www.springframework.org/schema/beans/spring-beans.xsd
+                http://www.springframework.org/schema/aop
+                http://www.springframework.org/schema/aop/spring-aop.xsd">
+
+        <bean class="org.springframework.beans.factory.config.CustomScopeConfigurer">
+                <property name="scopes">
+                        <map>
+                                <entry key="thread">
+                                        <bean class="org.springframework.context.support.SimpleThreadScope"/>
+                                </entry>
+                        </map>
+                </property>
+        </bean>
+
+        <bean id="bar" class="x.y.Bar" scope="thread">
+                <property name="name" value="Rick"/>
+                <aop:scoped-proxy/>
+        </bean>
+
+        <bean id="foo" class="x.y.Foo">
+                <property name="bar" ref="bar"/>
+        </bean>
+
+</beans>
+```
+
+## 1.6 Customizing the nature of a bean
+
+### 1.6.1 Lifecycle callbacks
+
+
+
