@@ -2303,3 +2303,348 @@ jdbc.password=root
 </beans>
 ```
 
+(隐含注册post-processors包括AutowiredAnnotationBeanPostProcessor, CommonAnnotationBeanPostProcessor, PersistenceAnnotationBeanPostProcessor, as well as the aforementioned RequiredAnnotationBeanPostProcessor.)
+
+> <context:annotation-config/> only looks for annotations on beans in the same application context in which it is defined. This means that, if you put <context:annotation-config/> in a WebApplicationContext for a DispatcherServlet, it only checks for @Autowired beans in your controllers, and not your services. See The DispatcherServlet for more information.
+
+### 1.9.1 @Required
+
+`@Required`注解应用到bean属性的setter方法。
+
+
+```java
+public class SimpleMovieLister {
+
+        private MovieFinder movieFinder;
+
+        @Required
+        public void setMovieFinder(MovieFinder movieFinder) {
+                this.movieFinder = movieFinder;
+        }
+
+        // ...
+
+}
+```
+
+这个注解简单通过在bean显示属性或者自动装配，指示影响到的bean属性必须在配置时生成。当受影响的bean属性没有生成，容器会抛出异常。这个允许及早和明确的错误，避免`NullPointerException`.也推荐你将断言放到bean class，例如放到初始化方法。即使在容器外部使用这个类，你也可以强制那些必需的引用和值
+
+### 1.9.3 @Autowired
+
+JSR 330's `@Inject` 注解是用来代替Spring's `@Autowired`注解。
+
+
+你可以使用`@Autowired`注解到构造器
+
+
+```java
+public class MovieRecommender {
+
+        private final CustomerPreferenceDao customerPreferenceDao;
+
+        @Autowired
+        public MovieRecommender(CustomerPreferenceDao customerPreferenceDao) {
+                this.customerPreferenceDao = customerPreferenceDao;
+        }
+
+        // ...
+
+}
+```
+
+> As of Spring Framework 4.3, the @Autowired constructor is no longer necessary if the target bean only defines one constructor. If several constructors are available, at least one must be annotated to teach the container which one it has to use.
+
+同样，你可以应用`@Autowired`注解到setter方法
+
+
+```java
+public class SimpleMovieLister {
+
+        private MovieFinder movieFinder;
+
+        @Autowired
+        public void setMovieFinder(MovieFinder movieFinder) {
+                this.movieFinder = movieFinder;
+        }
+
+        // ...
+
+}
+```
+
+你也可以应用注解到具有任意名字或者多个参数的方法。
+
+
+```java
+public class MovieRecommender {
+
+        private MovieCatalog movieCatalog;
+
+        private CustomerPreferenceDao customerPreferenceDao;
+
+        @Autowired
+        public void prepare(MovieCatalog movieCatalog,
+                        CustomerPreferenceDao customerPreferenceDao) {
+                this.movieCatalog = movieCatalog;
+                this.customerPreferenceDao = customerPreferenceDao;
+        }
+
+        // ...
+
+}
+```
+
+你也可以应用到`@Autowired`到字段和构造器
+
+
+```java
+public class MovieRecommender {
+
+        private final CustomerPreferenceDao customerPreferenceDao;
+
+        @Autowired
+        private MovieCatalog movieCatalog;
+
+        @Autowired
+        public MovieRecommender(CustomerPreferenceDao customerPreferenceDao) {
+                this.customerPreferenceDao = customerPreferenceDao;
+        }
+
+        // ...
+
+}
+```
+
+通过添加注解到期待某种类型的数组到字段或者方法，然后从`ApplicationContext`将所有满足类型的所有bean注入。
+
+
+```java
+public class MovieRecommender {
+
+        @Autowired
+        private MovieCatalog[] movieCatalogs;
+
+        // ...
+
+}
+```
+
+同样可以引用到类型集合。
+
+
+```java
+public class MovieRecommender {
+
+        private Set<MovieCatalog> movieCatalogs;
+
+        @Autowired
+        public void setMovieCatalogs(Set<MovieCatalog> movieCatalogs) {
+                this.movieCatalogs = movieCatalogs;
+        }
+
+        // ...
+
+}
+```
+
+你可以使用`org.springframework.core.Ordered`接口或者使用`@Order`或者标准的`@Priority`注解，这样子在数组或者列表中的对象就会以特定的顺序排序。
+
+甚至只要类型Map的键类型是`String`,它也可以自动装配。这样子Map的值
+可以得到所有期待的类型的bean，键应该包含相应的bean的名字。
+
+
+```java
+public class MovieRecommender {
+
+        private Map<String, MovieCatalog> movieCatalogs;
+
+        @Autowired
+        public void setMovieCatalogs(Map<String, MovieCatalog> movieCatalogs) {
+                this.movieCatalogs = movieCatalogs;
+        }
+
+        // ...
+
+}
+```
+
+默认，当只有零个有效bean有效，自动装配会失败。默认的行为是对待注解方法，构造器或者字段都是要求required依赖，这个行为可以通过下面演示改变
+
+
+```java
+public class SimpleMovieLister {
+
+        private MovieFinder movieFinder;
+
+        @Autowired(required=false)
+        public void setMovieFinder(MovieFinder movieFinder) {
+                this.movieFinder = movieFinder;
+        }
+
+        // ...
+
+```
+
+每个类，只有一个注解构造器能够标记为required，但是多个non-required构造器可以注解。在这种情况，候选者中的每个都会考虑，Spring会采用贪婪去匹配构造器，哪个构造器具有最多的参数的满足依赖，就会采用那一个。
+
+
+
+`@Autowired`'s required属性比`@Required`注解更加推荐。`required`属性指示property并不是自动装配的必要条件，因此如果不能自动装配，这个property会被忽略。`@Required`注解，需要确保浏览器支持的任意方法去设置property.如果没有值被注入，则相应异常就会抛出。
+
+
+你如果在一些众所周知的接口上面使用`@Autowired`。例如`BeanFactory`，`ApplicationContext`，`Environment`，`ResourceLoader`，`ApplicationEventPublisher`，and `MessageSource`.这些接口和他们的扩展接口，例如`ConfigurableApplicationContext`，或者`ResourcePatternResolver`，无需特别步骤就会自动解析。
+
+
+```java
+public class MovieRecommender {
+
+        @Autowired
+        private ApplicationContext context;
+
+        public MovieRecommender() {
+        }
+
+        // ...
+
+}
+
+```
+
+> @Autowired, @Inject, @Resource, and @Value annotations are handled by Spring BeanPostProcessor implementations which in turn means that you cannot apply these annotations within your own BeanPostProcessor or BeanFactoryPostProcessor types (if any). These types must be 'wired up' explicitly via XML or using a Spring @Bean method.
+
+### 1.9.3 Fine-tuning annotation-based autowiring with @Primary
+
+因为根据类型自动装配会导致多个后选择，所以需要必要的措施去控制选择的过程。其中一种方法就是去通过`@Primary`注解去完成它。当多个候选者可以自动装配到单一值的依赖，带有这个注解的bean应该赋值它的引用。如果在众多候选者，精确只有一个primary存在，它将是自动装配的值。
+
+假设我们有以下配置，定义了`firstMovieCatalog`作为primary`MovieCatalog`.
+
+
+```java
+@Configuration
+public class MovieConfiguration {
+
+        @Bean
+        @Primary
+        public MovieCatalog firstMovieCatalog() { ... }
+
+        @Bean
+        public MovieCatalog secondMovieCatalog() { ... }
+
+        // ...
+
+}
+```
+
+在这样的配置下，下面的`MovieRecommender`会用`firstMovieCatalog`自动装配。
+
+
+```java
+public class MovieRecommender {
+
+        @Autowired
+        private MovieCatalog movieCatalog;
+
+        // ...
+
+}
+```
+
+相应的bean定义如下
+
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:context="http://www.springframework.org/schema/context"
+        xsi:schemaLocation="http://www.springframework.org/schema/beans
+                http://www.springframework.org/schema/beans/spring-beans.xsd
+                http://www.springframework.org/schema/context
+                http://www.springframework.org/schema/context/spring-context.xsd">
+
+        <context:annotation-config/>
+
+        <bean class="example.SimpleMovieCatalog" primary="true">
+                <!-- inject any dependencies required by this bean -->
+        </bean>
+
+        <bean class="example.SimpleMovieCatalog">
+                <!-- inject any dependencies required by this bean -->
+        </bean>
+
+        <bean id="movieRecommender" class="example.MovieRecommender"/>
+
+</beans>
+```
+
+### 1.9.4 Fine-tuning annotation-based autowiring with qualifiers
+
+当选择过程，需要更多的控制，可以使用`@Qulifier`。你可以关联qualifier特定的值,缩小匹配的类型集合，以至于在的每个参数的选择下选择一个特定的bean。简单来说，这是一段简单的描述值
+
+
+```java
+public class MovieRecommender {
+
+        @Autowired
+        @Qualifier("main")
+        private MovieCatalog movieCatalog;
+
+        // ...
+
+}
+```
+
+`@Qualifier`注解也已应用到到单独的构造器参数或者方法参数
+
+
+```java
+public class MovieRecommender {
+
+        private MovieCatalog movieCatalog;
+
+        private CustomerPreferenceDao customerPreferenceDao;
+
+        @Autowired
+        public void prepare(@Qualifier("main")MovieCatalog movieCatalog,
+                        CustomerPreferenceDao customerPreferenceDao) {
+                this.movieCatalog = movieCatalog;
+                this.customerPreferenceDao = customerPreferenceDao;
+        }
+
+        // ...
+
+}
+```
+
+相应的bean定义如下。带有qualifier值"main"的bean会自动装配到构造器参数(有相同的qualifier值)
+
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:context="http://www.springframework.org/schema/context"
+        xsi:schemaLocation="http://www.springframework.org/schema/beans
+                http://www.springframework.org/schema/beans/spring-beans.xsd
+                http://www.springframework.org/schema/context
+                http://www.springframework.org/schema/context/spring-context.xsd">
+
+        <context:annotation-config/>
+
+        <bean class="example.SimpleMovieCatalog">
+                <qualifier value="main"/>
+
+                <!-- inject any dependencies required by this bean -->
+        </bean>
+
+        <bean class="example.SimpleMovieCatalog">
+                <qualifier value="action"/>
+
+                <!-- inject any dependencies required by this bean -->
+        </bean>
+
+        <bean id="movieRecommender" class="example.MovieRecommender"/>
+
+</beans>
+```
+
