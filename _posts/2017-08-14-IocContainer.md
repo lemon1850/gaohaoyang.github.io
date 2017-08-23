@@ -2579,7 +2579,7 @@ public class MovieRecommender {
 
 ### 1.9.4 Fine-tuning annotation-based autowiring with qualifiers
 
-当选择过程，需要更多的控制，可以使用`@Qulifier`。你可以关联qualifier特定的值,缩小匹配的类型集合，以至于在的每个参数的选择下选择一个特定的bean。简单来说，这是一段简单的描述值
+当选择过程，需要更多的控制，可以使用`@Qualifier`。你可以关联qualifier特定的值,缩小匹配的类型集合，以至于在的每个参数的选择下选择一个特定的bean。简单来说，这是一段简单的描述值
 
 
 ```java
@@ -2647,4 +2647,275 @@ public class MovieRecommender {
 
 </beans>
 ```
+
+作为一个退却的匹配，bean名字会作为默认的修饰词的值。因此你可以定义一个id为"main"的bean，而不用使用内嵌的qualifier元素，两者会导致一样的匹配结果。然而，你可以使用这种转换去通过名字引用特定的Bean,`@Autowired`从根本上是一个带有可选的语义修饰符的类型驱动的注入。一个好的修饰符的值，例如"main",或者"EMEA"等，独立于bean id，表达了特定组件的个性化特征，而bean id对于匿名bean会自动生成。
+
+修饰符也可以应用到类型集合，例如`Set<MovieCatalog>`。这种情况，根据显示的修饰值，所有匹配的bean都会注入到集合。这里暗示了修饰值不一定是唯一的，他们不过是构成过滤标准。举个例子，你可以定义多个具有相同修饰值“action"的`MovieCatalog`bean，所有这些都会注入到一个被`@Qualifier("action"）`注解的`Set<MovieCatalog>`
+
+
+
+如果你想通过名字表达注解驱使的注入，别经常使用`@Autowired`,即使通过`@Qualifier`值，我们技术上可以通过bean名字引用。相反，应该使用`@Resource`注解，它的语义定义就是通过唯一的名字去辨认特定的目标组件，其中声明的类型不相关于查找过程。`@Autowired`有相当不同的语义。当你通过类型选择候选者，特定的修饰值就会在这些选择完类型的候选者中继续选择。
+
+对于那些定义为集合/map，数组类型的beans，使用`@Resource`是一种很好的解决方法，通过唯一的名字去引用指定的集合或者数组。在4.3，集合或者数组可以通过`@Autowired`类型匹配算法匹配，只要`@Bean`中的元素类型满足该类型或者继承。这种情况，修饰符值可以通过这些相同类型的集合中选择。
+
+As of 4.3, @Autowired also considers self references for injection, i.e. references back to the bean that is currently injected. Note that self injection is a fallback; regular dependencies on other components always have precedence. In that sense, self references do not participate in regular candidate selection and are therefore in particular never primary; on the contrary, they always end up as lowest precedence. In practice, use self references as a last resort only, e.g. for calling other methods on the same instance through the bean’s transactional proxy: Consider factoring out the affected methods to a separate delegate bean in such a scenario. Alternatively, use @Resource which may obtain a proxy back to the current bean by its unique name.
+
+`@Autowired`可以应用在字段，构造器或者多参数方法，允许在参数层次使用修饰值去缩小范围。相反，`@Resource`只支持字段或者bean属性的单参数的setter方法
+
+当你创建自己定制的修饰符注解。
+
+
+```java
+@Target({ElementType.FIELD, ElementType.PARAMETER})
+@Retention(RetentionPolicy.RUNTIME)
+@Qualifier
+public @interface Genre {
+
+        String value();
+}
+```
+
+这样子你可以提供定制的修饰符到自动装配字段或者参数
+
+
+```java
+public class MovieRecommender {
+
+        @Autowired
+        @Genre("Action")
+        private MovieCatalog actionCatalog;
+        private MovieCatalog comedyCatalog;
+
+        @Autowired
+        public void setComedyCatalog(@Genre("Comedy") MovieCatalog comedyCatalog) {
+                this.comedyCatalog = comedyCatalog;
+        }
+
+        // ...
+
+}
+```
+
+借着，提供参与候选者的bean定义的信息。你可以在`<bean/>`元素增加`<qualifier>`标记，然后指定`type`和`value`，用来匹配你的定制修饰符注解。类型需要是注解的全限定符。如果名字没有重复，直接可以使用短的class名字。
+
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:context="http://www.springframework.org/schema/context"
+        xsi:schemaLocation="http://www.springframework.org/schema/beans
+                http://www.springframework.org/schema/beans/spring-beans.xsd
+                http://www.springframework.org/schema/context
+                http://www.springframework.org/schema/context/spring-context.xsd">
+
+        <context:annotation-config/>
+
+        <bean class="example.SimpleMovieCatalog">
+                <qualifier type="Genre" value="Action"/>
+                <!-- inject any dependencies required by this bean -->
+        </bean>
+
+        <bean class="example.SimpleMovieCatalog">
+                <qualifier type="example.Genre" value="Comedy"/>
+                <!-- inject any dependencies required by this bean -->
+        </bean>
+
+        <bean id="movieRecommender" class="example.MovieRecommender"/>
+
+</beans>
+```
+
+有些情况，使用不带有值的注解就足够了。当注解用于一个很普遍的目的，并可以应用到多个类型依赖，在这种情况就很有用了。
+
+
+```java
+@Target({ElementType.FIELD, ElementType.PARAMETER})
+@Retention(RetentionPolicy.RUNTIME)
+@Qualifier
+public @interface Offline {
+
+}
+```
+
+
+
+```java
+public class MovieRecommender {
+
+        @Autowired
+        @Offline
+        private MovieCatalog offlineCatalog;
+
+        // ...
+
+}
+```
+
+
+```xml
+<bean class="example.SimpleMovieCatalog">
+        <qualifier type="Offline"/>
+        <!-- inject any dependencies required by this bean -->
+</bean>
+```
+
+你也可以定制修饰符注解接受多个命名属性，而不会只有`value`.如果多个属性值指定到自动装配的字段或者参数，那么只有匹配所有的属性值才能考虑作为候选者。
+
+
+```java
+@Target({ElementType.FIELD, ElementType.PARAMETER})
+@Retention(RetentionPolicy.RUNTIME)
+@Qualifier
+public @interface MovieQualifier {
+
+        String genre();
+
+        Format format();
+
+}
+```
+
+
+```java
+public enum Format {
+        VHS, DVD, BLURAY
+}
+```
+
+
+```java
+public class MovieRecommender {
+
+        @Autowired
+        @MovieQualifier(format=Format.VHS, genre="Action")
+        private MovieCatalog actionVhsCatalog;
+
+        @Autowired
+        @MovieQualifier(format=Format.VHS, genre="Comedy")
+        private MovieCatalog comedyVhsCatalog;
+
+        @Autowired
+        @MovieQualifier(format=Format.DVD, genre="Action")
+        private MovieCatalog actionDvdCatalog;
+
+        @Autowired
+        @MovieQualifier(format=Format.BLURAY, genre="Comedy")
+        private MovieCatalog comedyBluRayCatalog;
+
+        // ...
+
+}
+```
+
+下面的例子展示了bean的`meta`属性可以用来代替`<qualifier/>`子元素。如果可以获得，`<qualifier/>`和他的属性会优先使用，但是如果没有该修饰符存在，那么就会退回到使用`<meta/>`标签里面的值。
+
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:context="http://www.springframework.org/schema/context"
+        xsi:schemaLocation="http://www.springframework.org/schema/beans
+                http://www.springframework.org/schema/beans/spring-beans.xsd
+                http://www.springframework.org/schema/context
+                http://www.springframework.org/schema/context/spring-context.xsd">
+
+        <context:annotation-config/>
+
+        <bean class="example.SimpleMovieCatalog">
+                <qualifier type="MovieQualifier">
+                        <attribute key="format" value="VHS"/>
+                        <attribute key="genre" value="Action"/>
+                </qualifier>
+                <!-- inject any dependencies required by this bean -->
+        </bean>
+
+        <bean class="example.SimpleMovieCatalog">
+                <qualifier type="MovieQualifier">
+                        <attribute key="format" value="VHS"/>
+                        <attribute key="genre" value="Comedy"/>
+                </qualifier>
+                <!-- inject any dependencies required by this bean -->
+        </bean>
+
+        <bean class="example.SimpleMovieCatalog">
+                <meta key="format" value="DVD"/>
+                <meta key="genre" value="Action"/>
+                <!-- inject any dependencies required by this bean -->
+        </bean>
+
+        <bean class="example.SimpleMovieCatalog">
+                <meta key="format" value="BLURAY"/>
+                <meta key="genre" value="Comedy"/>
+                <!-- inject any dependencies required by this bean -->
+        </bean>
+
+</beans>
+```
+
+### 1.9.5 Using generics as autowiring qualifiers
+
+除了`@Qualifier`注解，也可以通过JAVA泛型类型作为一个隐式的限定。
+
+
+```java
+@Configuration
+public class MyConfiguration {
+
+        @Bean
+        public StringStore stringStore() {
+                return new StringStore();
+        }
+
+        @Bean
+        public IntegerStore integerStore() {
+                return new IntegerStore();
+        }
+
+}
+```
+
+假设上面的beans都实现了一个泛型接口，例如，`Store<String>`和 `Store<Integer>`，你可以通过`@Autowire`这个`Store`接口，那么泛型就会用作限定符。
+
+
+```java
+@Autowired
+private Store<String> s1; // <String> qualifier, injects the stringStore bean
+
+@Autowired
+private Store<Integer> s2; // <Integer> qualifier, injects the integerStore bean
+```
+
+当自动装配集合和数组时，泛型限定符也应用上
+
+
+```java
+// Inject all Store beans as long as they have an <Integer> generic
+// Store<String> beans will not appear in this list
+@Autowired
+private List<Store<Integer>> s;
+```
+
+### 1.9.6 CustomAutowireConfiguer
+
+`CustomAutowireConfiguer`是一个`BeanFactoryPostProcessor`, 允许你拥有定制的限定注解类型，即使他们没有被Spring的`@Qualifier`注解注解。
+
+
+
+```xml
+<bean id="customAutowireConfigurer"
+                class="org.springframework.beans.factory.annotation.CustomAutowireConfigurer">
+        <property name="customQualifierTypes">
+                <set>
+                        <value>example.CustomQualifier</value>
+                </set>
+        </property>
+</bean>
+```
+
+
+`AutowireCandidateResolver`通过下面决定自动装配的候选者：
+
+* 
 
