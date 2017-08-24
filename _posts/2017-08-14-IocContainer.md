@@ -2917,5 +2917,229 @@ private List<Store<Integer>> s;
 
 `AutowireCandidateResolver`通过下面决定自动装配的候选者：
 
-* 
+* 每个bean定义的`autowire-candidate`属性
+* `<beans/>`元素上上面`default-autowire-candidate`模式匹配上的
+* 存在`@Qualifier`注解或者任意被`CustomAutowireConfigurer`注册的定制注解
+
+
+如果多个bean有资格作为自动装配候选者，那么对于primary的决定就如下，如果只有一个候选者的`primary`属性为`true`，他就会被选择这个bean.
+
+
+### 1.9.7 @Resource
+
+`@Resource`注解可以注入到字段或者bean属性setter方法。
+
+`@Resource`会取一个name属性，默认Spring会将这个值翻译成需要注入的bean的名字。换句话说，他遵循通过名字的语义。
+
+
+```java
+public class SimpleMovieLister {
+
+        private MovieFinder movieFinder;
+
+        @Resource(name="myMovieFinder")
+        public void setMovieFinder(MovieFinder movieFinder) {
+                this.movieFinder = movieFinder;
+        }
+
+}
+```
+
+如果不指定名字，那么默认名字就会从字段名字或者setter方法中得到。如果是字段，就回取字段名字，如果是setter方法，则取bean的属性名字。下面例子，就会取一个名字为"movieFinder"的bean
+
+
+```java
+public class SimpleMovieLister {
+
+        private MovieFinder movieFinder;
+
+        @Resource
+        public void setMovieFinder(MovieFinder movieFinder) {
+                this.movieFinder = movieFinder;
+        }
+
+}
+```
+
+The name provided with the annotation is resolved as a bean name by the ApplicationContext of which the CommonAnnotationBeanPostProcessor is aware. The names can be resolved through JNDI if you configure Spring’s SimpleJndiBeanFactory explicitly. However, it is recommended that you rely on the default behavior and simply use Spring’s JNDI lookup capabilities to preserve the level of indirection.
+
+在一种`@Resource`注解没有使用特定的名字的特殊情况，他会跟`@Autowired`想死。`@Resource`会根据类型匹配而不是指定名字，这种情况就是解析众所周知的依赖，`BeanFactory, ApplicationContext, ResourceLoader, ApplicationEventPublisher, and MessageSource`接口。
+
+因此下面例子，`customerPreferenceDao`字段会先找一个命名为`customerPreferenceDao`的字段，然后对于`ApplicationContext`类型，则会根据类型匹配。这个“context”字段会基于对类型`ApplicationContext`的解析依赖注入。
+
+
+```java
+public class MovieRecommender {
+
+        @Resource
+        private CustomerPreferenceDao customerPreferenceDao;
+
+        @Resource
+        private ApplicationContext context;
+
+        public MovieRecommender() {
+        }
+
+        // ...
+
+}
+```
+### 1.9.8. @PostConstruct and @PreDestroy
+
+`CommonAnnotationBeanPostProcessor`不但能辨认出`@Resource`,而且能辨认出生命周期注解。这些注解提供了初始化回调和摧毁回调的另外的选择。`CommonAnnotationBeanPostProcessor`注册到`ApplicationContext`，在生命周期的某些点，带有这些注解的方法会被调用。
+
+
+```java
+public class CachingMovieLister {
+
+        @PostConstruct
+        public void populateMovieCache() {
+                // populates the movie cache upon initialization...
+        }
+
+        @PreDestroy
+        public void clearMovieCache() {
+                // clears the movie cache upon destruction...
+        }
+
+}
+```
+
+## 1.10 Classpath scanning and managed components
+
+这个章节的大多数例子都是使用XML值指定配置元数据，从而生成bean定义。上面的小节基于注解的配置，展示了如何通过源代码层次注解去提供大量的配置元素据。即使如此，那些例子的bean定义都是在XML文件配置，其中注解只是驱动依赖注入。本小节提供了一个通过扫描classpath含蓄的检查到候选组件的选择。候选组件是满足筛选标准的类，并有相应的bean定义注册到容器。这些会移除我们使用XML进行bean定义的需求，作为代替，我们会使用注解(例如`@Component`)，AspectJ 类型表达式，后者你自己定制过滤标准去选择那些类会有bean定义。
+
+### 1.10.1. @Component and further stereotype annotations
+
+`@Reposity`注解是一个标记，标记任何会充当repository角色的类。通过使用这个标记，可以自动转换异常
+
+Spring提供更多固定的注解，`@Component, @Service, and @Controller`。`@Component`是普通的模式用于所有Spring管理的组件。`@Repository, @Service, and @Controller`是特殊化的`@Compoent`用于更加具体的使用。例如，持久化，服务，或者表现层，各自。因此，你可以用`@Compoent`注解你的组件类，但是你也可以用`@Repository, @Service, or @Controller`注解他们，那样子你的类可以更好的被工具管理或者被切面连接。举个例子，这些模式化的注解可能是理想的用于切点的目标。也许，以后`@Repository, @Service, and @Controller`在以后的Spring的本班会有额外的语义。如果你选择`@Compoent`或者`@Service`用于你的服务处，`Service`是更好的选择。类似的，`@Repository`已经作为一个可以自动转换异常的标记引用在持久化层。
+
+### 1.10.2. Meta-annotations
+
+Spring提供的很多注解都能用于你代码的元注解。元注解就是应用到其他注解的注解。例如`@Service`就是用`@Compoent`作为元注解。
+
+
+```java
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@Component // Spring will see this and treat @Service in the same way as @Component
+public @interface Service {
+
+        // ....
+}
+```
+
+元注解可以结合创建复合注解。例如，`@RestController`就是由`@Controller`和`@ResponseBody`组成
+
+另外，组合注解可能从元注解中重新声明属性，允许用户去定制。当你想暴露元数据的一部分属性，这样子特别有用。例如，`@SessionScope`注解硬编码范围名字为session，并允许定制化`proxyMode`.
+
+
+```java
+@Target({ElementType.TYPE, ElementType.METHOD})
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@Scope(WebApplicationContext.SCOPE_SESSION)
+public @interface SessionScope {
+
+        /**
+         * Alias for {@link Scope#proxyMode}.
+         * <p>Defaults to {@link ScopedProxyMode#TARGET_CLASS}.
+         */
+        @AliasFor(annotation = Scope.class)
+        ScopedProxyMode proxyMode() default ScopedProxyMode.TARGET_CLASS;
+
+}
+```
+
+`@SessionScope`可以不声明proxyMode使用如下
+
+
+```java
+@Service
+@SessionScope
+public class SessionScopedService {
+        // ...
+}
+```
+
+或者覆盖`proxyMode`
+
+
+```java
+@Service
+@SessionScope(proxyMode = ScopedProxyMode.INTERFACES)
+public class SessionScopedUserService implements UserService {
+        // ...
+}
+```
+
+### 1.10.3. Automatically detecting classes and registering bean definitions
+
+Spring自动检测模式类，并在`ApplicationContext`注册相应的`BeanDefinition`。举个例子，下面两个类就有资格自动检查到。
+
+
+```java
+@Service
+public class SimpleMovieLister {
+
+        private MovieFinder movieFinder;
+
+        @Autowired
+        public SimpleMovieLister(MovieFinder movieFinder) {
+                this.movieFinder = movieFinder;
+        }
+
+}
+```
+
+
+```java
+@Repository
+public class JpaMovieFinder implements MovieFinder {
+        // implementation elided for clarity
+}
+```
+
+去自动检查这些类，并注册到相应的bean，你需要增加`@CompoentScan`到你的`@Configuration`类，`basePackages`属性应该是这两个类的公共的父包(你可以用分隔符去列出包含每个类的父包的列表)
+
+
+
+```java
+@Configuration
+@ComponentScan(basePackages = "org.example")
+public class AppConfig  {
+           ...
+}
+```
+
+简洁点，可以直接用`value`属性,例如`@ComponentScan("org.example")`
+
+XML的等价物
+
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xmlns:context="http://www.springframework.org/schema/context"
+        xsi:schemaLocation="http://www.springframework.org/schema/beans
+                http://www.springframework.org/schema/beans/spring-beans.xsd
+                http://www.springframework.org/schema/context
+                http://www.springframework.org/schema/context/spring-context.xsd">
+
+        <context:component-scan base-package="org.example"/>
+
+</beans>
+```
+
+> 使用`<context:component-scan>`隐含着开启了`<context:annotation-config>`的功能。因此使用`<context:component-scan>`，不需要包含`<context:annotation-config>`元素
+
+另外，当你使用`compoent-scan`元素，就会隐式包含`AutowiredAnnotationBeanPostProcessor`和`CommonAnnotationBeanPostProcessor`。
+这意味这两个组件被自动检测病装配好，而不需要XML配置元数据。
+
+### 1.10.4. Using filters to customize scanning
+
+默认，被`@Component, @Repository, @Service, @Controller`注解的类，或者被`@Compoent`注解的定制类才会被自动检测作为候选组件。然而，你可以应用定制化筛选去扩展这种行为。通过在`@CompoentScan`注解中使用`includeFilters`或者`excludeFilters`参数
 
