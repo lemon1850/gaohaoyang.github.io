@@ -3434,5 +3434,142 @@ dependency>
 
 ### 1.11.1. Dependency Injection with @Inject and @Named
 
-作为
+作为`@Autowired`,`@javax.inject.Inject`可以像下面那样子用
+
+
+```java
+import javax.inject.Inject;
+
+public class SimpleMovieLister {
+
+        private MovieFinder movieFinder;
+
+        @Inject
+        public void setMovieFinder(MovieFinder movieFinder) {
+                this.movieFinder = movieFinder;
+        }
+
+        public void listMovies() {
+                this.movieFinder.findMovies(...);
+                ...
+        }
+}
+
+```
+
+就像`@Autowired`,可以使用`@Inject`在字段，方法和构造器参数层次。而且你可以声明一个注入点，将他作为`Provider`，按需访问更短周期的beans或者通过`Provider.get()`调用去依赖访问其他bean.
+
+
+```java
+import javax.inject.Inject;
+import javax.inject.Provider;
+
+public class SimpleMovieLister {
+
+        private Provider<MovieFinder> movieFinder;
+
+        @Inject
+        public void setMovieFinder(Provider<MovieFinder> movieFinder) {
+                this.movieFinder = movieFinder;
+        }
+
+        public void listMovies() {
+                this.movieFinder.get().findMovies(...);
+                ...
+        }
+}
+
+```
+
+如果你喜欢对于要注入的依赖使用限制名字，那你可以使用`@Named`
+
+
+```java
+import javax.inject.Inject;
+import javax.inject.Named;
+
+public class SimpleMovieLister {
+
+        private MovieFinder movieFinder;
+
+        @Inject
+        public void setMovieFinder(@Named("main") MovieFinder movieFinder) {
+                this.movieFinder = movieFinder;
+        }
+
+        // ...
+}
+```
+
+### 1.11.2. @Named and @ManagedBean: standard equivalents to the @Component annotation
+
+
+```java
+import javax.inject.Inject;
+import javax.inject.Named;
+
+@Named("movieListener") // @ManagedBean("movieListener") could be used as well
+public class SimpleMovieLister {
+
+        private MovieFinder movieFinder;
+
+        @Inject
+        public void setMovieFinder(MovieFinder movieFinder) {
+                this.movieFinder = movieFinder;
+        }
+
+        // ...
+}
+```
+
+类似于使用`@Compoent`没有给组件指定名字，`@Named`使用了同种方式。
+
+
+```java
+import javax.inject.Inject;
+import javax.inject.Named;
+
+@Named
+public class SimpleMovieLister {
+
+        private MovieFinder movieFinder;
+
+        @Inject
+        public void setMovieFinder(MovieFinder movieFinder) {
+                this.movieFinder = movieFinder;
+        }
+
+        // ...
+}
+```
+
+
+当使用`@Named`或者`@ManagedBean`，也可以跟使用Spring注解那样一样的方式去组件扫描
+
+```java
+@Configuration
+@ComponentScan(basePackages = "org.example")
+public class AppConfig  {
+           ...
+}
+```
+
+### 1.11.3. Limitations of JSR-330 standard annotations
+
+
+图片补上
+
+## 1.12. Java-based container configuration
+
+### 1.12.1. Basic concepts: @Bean and @Configuration
+
+
+
+Spring新的java配置的核心产品就是`@Configuration`注解类以及`@Bean`注解的方法
+
+`@Bean`注解用于指示一个方法实例化，配置和吃书画一个准备被容器管理的对象。对于那些熟悉的`<beans/>`元素，`@Bean`扮演一样的角色。
+你可以在`@Component`中，使用`@Bean`注解方法。然而，你可能最常使用`@Configuration`beans.
+
+
+被
 
