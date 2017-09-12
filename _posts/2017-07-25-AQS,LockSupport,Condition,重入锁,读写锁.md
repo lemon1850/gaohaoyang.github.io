@@ -19,7 +19,7 @@ tags:  java
 
 提供基本的线程阻塞和唤醒功能
 
-![](media/15009520329799/15009522789691.jpg)
+![](http://ok17kve7y.bkt.clouddn.com/15009522789691.jpg)
 
 
 Java6，新增加`park(Object blocker)`,` parkNanos(Object blocker, long nanos)` 参数blocker用来标志当前线程在等待的对象(阻塞对象)
@@ -70,11 +70,11 @@ try {
 
 > 不能讲获取锁的过程反倒try块中，如果获取锁时发生了异常，也会导致锁无故释放
 
-![](media/15009520329799/15009526796491.jpg)
+![](http://ok17kve7y.bkt.clouddn.com/15009526796491.jpg)
 
 ## API
 
-![](media/15009520329799/15009526995888.jpg)
+![](http://ok17kve7y.bkt.clouddn.com/15009526995888.jpg)
 
 
 # 队列同步器AQS
@@ -96,16 +96,16 @@ try {
 
 ### 修改同步状态方法
 
-![](media/15009520329799/15009533603594.jpg)
+![](http://ok17kve7y.bkt.clouddn.com/15009533603594.jpg)
 
 
 ### 同步器重写方法
 
-![](media/15009520329799/15009534219347.jpg)
+![](http://ok17kve7y.bkt.clouddn.com/15009534219347.jpg)
 
 ### 同步器模板方法
 
-![](media/15009520329799/15009534488243.jpg)
+![](http://ok17kve7y.bkt.clouddn.com/15009534488243.jpg)
 
 
 ## 实现
@@ -114,27 +114,27 @@ try {
 
 节点属性类型与名称
 
-![](media/15009520329799/15009539834951.jpg)
+![](http://ok17kve7y.bkt.clouddn.com/15009539834951.jpg)
 
 
 同步队列结构
 
-![](media/15009520329799/15009540178946.jpg)
+![](http://ok17kve7y.bkt.clouddn.com/15009540178946.jpg)
 
 
 加入同步队列
 
-![](media/15009520329799/15009540476464.jpg)
+![](http://ok17kve7y.bkt.clouddn.com/15009540476464.jpg)
 
 
 设置首节点
 
-![](media/15009520329799/15009540666272.jpg)
+![](http://ok17kve7y.bkt.clouddn.com/15009540666272.jpg)
 
 
 ### 独占式同步状态获取与释放
 
-![](media/15009520329799/15009640747723.jpg)
+![](http://ok17kve7y.bkt.clouddn.com/15009640747723.jpg)
 
 
 #### acquire
@@ -460,7 +460,7 @@ private void doAcquireInterruptibly(int arg)
 #### doAcquireNanos
 
 
-![](media/15009520329799/15009663363015.jpg)
+![](http://ok17kve7y.bkt.clouddn.com/15009663363015.jpg)
 
 
 
@@ -555,9 +555,9 @@ protected final boolean tryRelease(int releases) {
 
 # 读写锁ReentrantReadWriteLock
 
-![](media/15009520329799/15009673036719.jpg)
+![](http://ok17kve7y.bkt.clouddn.com/15009673036719.jpg)
 
-![](media/15009520329799/15009673428949.jpg)
+![](http://ok17kve7y.bkt.clouddn.com/15009673428949.jpg)
 
 ### 实现
 
@@ -688,25 +688,25 @@ protected final int tryAcquireShared(int unused) {
 
 #Condition接口
 
-![](media/15009520329799/15009713760731.jpg)
+![](http://ok17kve7y.bkt.clouddn.com/15009713760731.jpg)
 
 
-![](media/15009520329799/15009717374065.jpg)
+![](http://ok17kve7y.bkt.clouddn.com/15009717374065.jpg)
 
 
 ## 实现
 
 ### 等候队列
 
-![](media/15009520329799/15009719467076.jpg)
+![](http://ok17kve7y.bkt.clouddn.com/15009719467076.jpg)
 
 
-![](media/15009520329799/15009719621299.jpg)
+![](http://ok17kve7y.bkt.clouddn.com/15009719621299.jpg)
 
 
 ### 等候
 
-![](media/15009520329799/15009723553082.jpg)
+![](http://ok17kve7y.bkt.clouddn.com/15009723553082.jpg)
 
 
 
@@ -733,7 +733,7 @@ public final void await() throws InterruptedException {
 
 ### 通知
 
-![](media/15009520329799/15009724115647.jpg)
+![](http://ok17kve7y.bkt.clouddn.com/15009724115647.jpg)
 
 
 

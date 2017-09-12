@@ -21,7 +21,7 @@ tags:  java collections
 
 jdk1.7中采用Segment + HashEntry的方式进行实现，结构如下：
 
-![](http://ok17kve7y.bkt.clouddn.com/15015590887269/15015721293787.jpg)
+![](http://ok17kve7y.bkt.clouddn.com/15015721293787.jpg)
 
 
 ConcurrentHashMap初始化时，计算出Segment数组的大小ssize和每个Segment中HashEntry数组的大小cap，并初始化Segment数组的第一个元素；其中ssize大小为2的幂次方，默认为16，cap大小也是2的幂次方，最小值为2，最终结果根据根据初始化容量initialCapacity进行计算，计算过程如下：
@@ -94,7 +94,7 @@ try {
 
 1.8中放弃了Segment臃肿的设计，取而代之的是采用Node + CAS + Synchronized来保证并发安全进行实现，结构如下：
 
-![](http://ok17kve7y.bkt.clouddn.com/15015590887269/15015722771739.jpg)
+![](http://ok17kve7y.bkt.clouddn.com/15015722771739.jpg)
 
 只有在执行第一次put方法时才会调用`initTable()`初始化Node数组，实现如下：
 
