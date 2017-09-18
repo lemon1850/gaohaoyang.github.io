@@ -17,7 +17,9 @@ type: page
 * [SpringMvc](https://docs.spring.io/spring/docs/5.0.0.RC2/spring-framework-reference/web.html#spring-web)
 * [mybatis](http://www.mybatis.org/mybatis-3/zh/getting-started.html)
 
+### 序列化
 
+* [protobuf](https://developers.google.com/protocol-buffers/)
 
 ## Comments
 
