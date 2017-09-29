@@ -33,11 +33,13 @@ type: page
 ### 工具库
 
 java处理XML
-[apachePOI](http://www.yiibai.com/apache_poi/)
 
-定时任务
-[quartz](http://www.quartz-scheduler.org/documentation/quartz-2.2.x/quick-start.html)
-[spring-quartz](https://docs.spring.io/spring/docs/current/spring-framework-reference/integration.html#scheduling-quartz)
+* [apachePOI](http://www.yiibai.com/apache_poi/)
+
+#### 定时任务
+
+* [quartz](http://www.quartz-scheduler.org/documentation/quartz-2.2.x/quick-start.html)
+* [spring-quartz](https://docs.spring.io/spring/docs/current/spring-framework-reference/integration.html#scheduling-quartz)
 
 ### 论文
 
