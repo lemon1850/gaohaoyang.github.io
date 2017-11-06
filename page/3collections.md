@@ -25,6 +25,10 @@ type: page
 
 * [elasticSearch](https://www.elastic.co/guide/cn/elasticsearch/guide/current/index.html)
 
+### 消息队列
+
+* [kafka](https://kafka.apache.org/)
+
 ### 容器
 
 * [docker](https://docs.docker.com/)

@@ -17,6 +17,8 @@ tags:  配置 virtualbox
 
 #virtualbox 共享文件夹
 
+[增强iso下载](http://download.virtualbox.org/virtualbox)
+
 1. Devices -> Install Guest Additions...(it's like insert a cd to cdrom drive)
 2. Open a terminal to login the guest machine
 3. Type below
