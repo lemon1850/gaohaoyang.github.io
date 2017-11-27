@@ -11,10 +11,11 @@ type: page
 
 ## 关于我
 
-<iframe src="https://githubbadge.appspot.com/gaohaoyang?s=1" style="border: 0;height: 142px;width: 200px;overflow: hidden;" frameBorder="0"></iframe>
+
 
 我是一名快乐的JAVA后台开发工程师
 
+* 2016.7.15 入职上海盛尧互联网金融服务有限公司
 * 2015.6.30 入职上海溪田
 * 2015.6 毕业于武汉大学计算机学院
 
