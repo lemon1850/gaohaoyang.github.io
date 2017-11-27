@@ -45,6 +45,11 @@ java处理XML
 * [quartz](http://www.quartz-scheduler.org/documentation/quartz-2.2.x/quick-start.html)
 * [spring-quartz](https://docs.spring.io/spring/docs/current/spring-framework-reference/integration.html#scheduling-quartz)
 
+#### 日志
+
+* [logback](https://logback.qos.ch/manual/index.html)
+
+
 ### 论文
 
 Raft
@@ -53,6 +58,10 @@ Raft
 * [Raft中文](http://link.zhihu.com/?target=https%3A//github.com/maemual/raft-zh_cn/blob/master/raft-zh_cn.md)
 * [Raft可视化](http://thesecretlivesofdata.com/raft/)
 
+### 博客
+
+数据库
+* [何登成](http://hedengcheng.com/)
 ## Comments
 
 {% include comments.html %}
