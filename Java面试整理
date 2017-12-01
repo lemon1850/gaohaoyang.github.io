@@ -1,0 +1,8 @@
+Java面试整理
+
+线程篇
+
+1.ThreadLocal
+	每个线程都维护一个ThreadLocal.ThreadLocalMap的map，其中key就是ThreadLocal变量，value就是这个存入的值，读取的时候读取该线程关联的ThradLocalMap中满足key等于当前ThreadLocal变量，为每个线程维护一个本地变量的副本。线程间数据隔离，每个线程各自修改自身副本，线程间不会冲突。
+
+2. 
