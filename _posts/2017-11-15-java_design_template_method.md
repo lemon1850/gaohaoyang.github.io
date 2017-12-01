@@ -13,7 +13,7 @@ tags:  design_pattern java
 
 
 
-# 设计模式之Adapter模式
+# 设计模式之Template模式
 
 # 趣例子
 ![](http://ok17kve7y.bkt.clouddn.com/14992477100267.jpg)
