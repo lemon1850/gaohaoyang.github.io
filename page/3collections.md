@@ -11,6 +11,15 @@ type: page
 
 ## 框架
 
+### 大数据
+
+* [hadoop](http://hadoop.apache.org/)
+* [hadoop文档](http://hadoop.apache.org/docs/current/)
+* [hive](http://hive.apache.org)
+* [spark](https://spark.apache.org/)
+* [presto](https://prestodb.io/)
+* [kylin](http://kylin.apache.org/cn/)
+
 ### Spring
 
 * [spring framework](https://docs.spring.io/spring/docs/5.0.0.RC2/spring-framework-reference/)
