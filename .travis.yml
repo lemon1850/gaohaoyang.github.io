@@ -1,0 +1,8 @@
+language: ruby
+rvm:
+  - 2.3.3
+notifications:
+  email:
+    - 89032902@qq.com
+  on_success: always
+  on_failure: always
