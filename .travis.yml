@@ -1,8 +1,14 @@
 language: ruby
 rvm:
-  - 2.3.3
+- 2.3.3
+
 notifications:
   email:
-    - 89032902@qq.com
+  - 89032902@qq.com
   on_success: always
   on_failure: always
+dd:
+  secure: F3R7aEks9EJMnm9/n58GeA1c650YU0EzLu9LQYpfZ8cgBxxju4zLVkFp6Rx1o3wIXIpoH1bDvCPzs/xxCbLDjXLbQKWN2Mpfq+Odd+KOWTS1hnrhCCVsmgnfOZ4jsOvhEcNMZ04gcCu48r7McgZjeLhFdMAv6Rk1Lq1vVfE6MNtfUINFGyAWqQ2lb85eTSTsi3grHsTpQs1NQz/Kjh1T6QOAoVyzZuL+HRAD2SvATKYZbfcFf+aMJ6BC/qICkyzcd4sYAteKzmjNYxzpkLDiB3mtQjMNwg4YnFAdlEGCCDBF3Qd0cM4StdgPXzHpsCM3nd1ygzVJaB0sTQItgBh1OL8SUD+PI1NLhYqSpTKLEFSX+8O8LO6aonoynl2gAA2jjOvFmB5HGpVmNjwZD581C7WNjjiM/14UlyKFUkxbX7NijceewMd+Nr/+0RcDCnHmtXdBErkCi/WFkYjqKCGkPUqDIrYJrOGcnJgqhSbgczPcOwevZlF+scOTS2aW9CD4xDa5CEw7v+gwN0L0LXWcULRNd5NmCOnn5dXVaCvuW07QFa7pOmJ/audsFKKo2WkJouC9xXivmSQ1JXGUhRtnByBMb1QD+VEiM0FPipg1JAk1OU6IfJm+82IDnmMiMJtPghIWosTsXA8O+o9l+YS5KrDYxBAJbOH4BsNa69LLAtA=
+script:
+  - bundle install
+  - bundle exec jekyll build
