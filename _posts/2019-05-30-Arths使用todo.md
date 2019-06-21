@@ -13,6 +13,10 @@ tags:  it
 
 Arths
 
+https://alibaba.github.io/arthas/
+
+curl -L https://alibaba.github.io/arthas/install.sh | sh
+
 
 # 
 
@@ -20,3 +24,6 @@ $ tt -t *ProblemShopHandle getParentIssuesTabs print params[2]=244210
 
 $ tt -t  *UnitInfoDataHelper handleHomePageUnitInfo   returnObj.unitId==244210
 
+tt -t *ProblemShopHandle getIssuesTabs
+
+tt -i 1003
